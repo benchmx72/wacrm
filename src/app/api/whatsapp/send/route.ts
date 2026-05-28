@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { sendTextMessage, sendTemplateMessage } from '@/lib/whatsapp/meta-api'
 import { decrypt, encrypt, isLegacyFormat } from '@/lib/whatsapp/encryption'
 import { supabaseAdmin } from '@/lib/flows/admin-client'
+import { supabaseAuthAdmin } from '@/lib/auth/admin-client'
 import {
   sanitizePhoneForMeta,
   isValidE164,
@@ -15,6 +16,43 @@ import {
   RATE_LIMITS,
 } from '@/lib/rate-limit'
 import { getServerAccountOwnerId } from '@/lib/auth/account'
+
+function telegramChatIdFromContact(phone: string | null | undefined) {
+  const match = /^tg:(-?\d+)$/.exec(phone ?? '')
+  return match?.[1] ?? null
+}
+
+function telegramReplyIdFromMessageId(messageId: string | null | undefined) {
+  const match = /^telegram:-?\d+:(\d+)$/.exec(messageId ?? '')
+  return match ? Number(match[1]) : undefined
+}
+
+async function sendTelegramText(args: {
+  botToken: string
+  chatId: string
+  text: string
+  replyToMessageId?: number
+}) {
+  const res = await fetch(`https://api.telegram.org/bot${args.botToken}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      chat_id: args.chatId,
+      text: args.text,
+      ...(args.replyToMessageId
+        ? { reply_parameters: { message_id: args.replyToMessageId } }
+        : {}),
+    }),
+  })
+
+  const payload = await res.json().catch(() => null)
+  if (!res.ok || !payload?.ok) {
+    const message = payload?.description || `Telegram API respondio con HTTP ${res.status}`
+    throw new Error(message)
+  }
+
+  return payload.result as { message_id: number; date: number }
+}
 
 export async function POST(request: Request) {
   try {
@@ -93,6 +131,122 @@ export async function POST(request: Request) {
         { error: 'Contact phone number not found' },
         { status: 400 }
       )
+    }
+
+    const telegramChatId = telegramChatIdFromContact(contact.phone)
+    if (telegramChatId) {
+      if (message_type !== 'text') {
+        return NextResponse.json(
+          { error: 'Telegram solo soporta mensajes de texto por ahora.' },
+          { status: 400 }
+        )
+      }
+
+      let replyToTelegramMessageId: number | undefined
+      if (reply_to_message_id) {
+        const { data: parent, error: parentError } = await supabase
+          .from('messages')
+          .select('message_id, conversation_id')
+          .eq('id', reply_to_message_id)
+          .eq('conversation_id', conversation_id)
+          .maybeSingle()
+
+        if (parentError || !parent) {
+          return NextResponse.json(
+            { error: 'reply_to_message_id not found in this conversation' },
+            { status: 400 }
+          )
+        }
+        replyToTelegramMessageId = telegramReplyIdFromMessageId(parent.message_id)
+      }
+
+      const admin = supabaseAuthAdmin()
+      const { data: telegramConfig, error: telegramConfigError } = await admin
+        .from('telegram_config')
+        .select('bot_token, status')
+        .eq('user_id', accountOwnerId)
+        .eq('status', 'connected')
+        .maybeSingle()
+
+      if (telegramConfigError || !telegramConfig) {
+        return NextResponse.json(
+          { error: 'Telegram no esta configurado para esta cuenta.' },
+          { status: 400 }
+        )
+      }
+
+      let telegramMessageId = ''
+      try {
+        const sent = await sendTelegramText({
+          botToken: decrypt(telegramConfig.bot_token),
+          chatId: telegramChatId,
+          text: content_text.trim(),
+          replyToMessageId: replyToTelegramMessageId,
+        })
+        telegramMessageId = `telegram:${telegramChatId}:${sent.message_id}`
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Unknown Telegram API error'
+        console.error('[whatsapp/send -> telegram] Telegram API send failed:', message)
+        return NextResponse.json(
+          { error: `Telegram API error: ${message}` },
+          { status: 502 }
+        )
+      }
+
+      const { data: messageRecord, error: msgError } = await supabase
+        .from('messages')
+        .insert({
+          conversation_id,
+          sender_type: 'agent',
+          content_type: 'text',
+          content_text: content_text.trim(),
+          message_id: telegramMessageId,
+          status: 'sent',
+          reply_to_message_id: reply_to_message_id || null,
+        })
+        .select()
+        .single()
+
+      if (msgError) {
+        console.error('[whatsapp/send -> telegram] Error inserting sent message:', msgError)
+        return NextResponse.json(
+          { error: `Mensaje enviado a Telegram pero no se pudo guardar: ${msgError.message}` },
+          { status: 500 }
+        )
+      }
+
+      await supabase
+        .from('conversations')
+        .update({
+          last_message_text: content_text.trim(),
+          last_message_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', conversation_id)
+
+      try {
+        await supabaseAdmin()
+          .from('flow_runs')
+          .update({
+            status: 'paused_by_agent',
+            ended_at: new Date().toISOString(),
+            end_reason: 'agent_replied',
+          })
+          .eq('user_id', accountOwnerId)
+          .eq('contact_id', contact.id)
+          .eq('status', 'active')
+      } catch (err) {
+        console.error(
+          '[whatsapp/send -> telegram] pause-on-agent-send threw:',
+          err instanceof Error ? err.message : err,
+        )
+      }
+
+      return NextResponse.json({
+        success: true,
+        message_id: messageRecord.id,
+        telegram_message_id: telegramMessageId,
+      })
     }
 
     // Sanitize and validate phone
