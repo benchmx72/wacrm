@@ -14,17 +14,15 @@ interface ReplyDraft {
 }
 
 interface MessageComposerProps {
-  conversationId: string;
   sessionExpired: boolean;
   onSend: (text: string, replyToId?: string) => void;
-  onOpenTemplates: () => void;
+  onOpenTemplates?: () => void;
   onSuggestReply?: () => Promise<string>;
   replyTo?: ReplyDraft | null;
   onClearReply?: () => void;
 }
 
 export function MessageComposer({
-  conversationId,
   sessionExpired,
   onSend,
   onOpenTemplates,
@@ -108,15 +106,17 @@ export function MessageComposer({
           <p className="text-xs text-amber-400">
             24-hour session expired. Use a template to re-engage.
           </p>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 text-xs text-amber-400 hover:text-amber-300"
-            onClick={onOpenTemplates}
-          >
-            <LayoutTemplate className="mr-1 h-3 w-3" />
-            Templates
-          </Button>
+          {onOpenTemplates && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs text-amber-400 hover:text-amber-300"
+              onClick={onOpenTemplates}
+            >
+              <LayoutTemplate className="mr-1 h-3 w-3" />
+              Templates
+            </Button>
+          )}
         </div>
       )}
 
@@ -137,15 +137,17 @@ export function MessageComposer({
           </Button>
         )}
 
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-9 w-9 shrink-0 p-0 text-slate-400 hover:text-white"
-          onClick={onOpenTemplates}
-          title="Send template"
-        >
-          <LayoutTemplate className="h-4 w-4" />
-        </Button>
+        {onOpenTemplates && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-9 w-9 shrink-0 p-0 text-slate-400 hover:text-white"
+            onClick={onOpenTemplates}
+            title="Send template"
+          >
+            <LayoutTemplate className="h-4 w-4" />
+          </Button>
+        )}
 
         <textarea
           ref={textareaRef}

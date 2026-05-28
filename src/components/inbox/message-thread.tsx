@@ -147,6 +147,7 @@ export function MessageThread({
 }: MessageThreadProps) {
   const { user, profile } = useAuth();
   const canSendMessages = hasPermission(profile?.role, "send_messages");
+  const isTelegramContact = contact?.phone?.startsWith("tg:") ?? false;
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
@@ -201,6 +202,7 @@ export function MessageThread({
 
   // 24-hour session timer
   const sessionInfo = useMemo(() => {
+    if (isTelegramContact) return { expired: false, remaining: "Telegram" };
     if (!messages.length) return { expired: false, remaining: "" };
 
     // Find last customer message
@@ -224,7 +226,7 @@ export function MessageThread({
         : `${Math.floor(hoursLeft * 60)}m remaining`;
 
     return { expired, remaining };
-  }, [messages]);
+  }, [isTelegramContact, messages]);
 
   // Store latest callback in a ref so fetchMessages doesn't need to
   // depend on `onMessagesLoaded` — otherwise parent re-renders cause
@@ -439,7 +441,9 @@ export function MessageThread({
       setReplyTo(null);
 
       try {
-        const res = await fetch("/api/whatsapp/send", {
+        const res = await fetch(
+          isTelegramContact ? "/api/telegram/send" : "/api/whatsapp/send",
+          {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -448,7 +452,8 @@ export function MessageThread({
             content_text: text,
             reply_to_message_id: replyToId,
           }),
-        });
+          },
+        );
 
         const payload = await res.json().catch(() => ({}));
 
@@ -472,7 +477,7 @@ export function MessageThread({
         onUpdateMessage(tempId, { status: "failed" });
       }
     },
-    [conversation, onNewMessage, onUpdateMessage]
+    [conversation, isTelegramContact, onNewMessage, onUpdateMessage]
   );
 
   const handleStatusChange = useCallback(
@@ -952,20 +957,21 @@ export function MessageThread({
       {canSendMessages && (
         <>
           <MessageComposer
-            conversationId={conversation.id}
             sessionExpired={sessionInfo.expired}
             onSend={handleSend}
-            onOpenTemplates={handleOpenTemplates}
+            onOpenTemplates={isTelegramContact ? undefined : handleOpenTemplates}
             onSuggestReply={handleSuggestReply}
             replyTo={replyTo}
             onClearReply={() => setReplyTo(null)}
           />
 
-          <TemplatePicker
-            open={templateModalOpen}
-            onOpenChange={setTemplateModalOpen}
-            onSelect={handleSendTemplate}
-          />
+          {!isTelegramContact && (
+            <TemplatePicker
+              open={templateModalOpen}
+              onOpenChange={setTemplateModalOpen}
+              onSelect={handleSendTemplate}
+            />
+          )}
         </>
       )}
     </div>
