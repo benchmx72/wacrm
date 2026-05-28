@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, KeyboardEvent } from "react";
-import { Send, LayoutTemplate } from "lucide-react";
+import { Bot, Send, LayoutTemplate } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ReplyQuote } from "./reply-quote";
@@ -18,6 +18,7 @@ interface MessageComposerProps {
   sessionExpired: boolean;
   onSend: (text: string, replyToId?: string) => void;
   onOpenTemplates: () => void;
+  onSuggestReply?: () => Promise<string>;
   replyTo?: ReplyDraft | null;
   onClearReply?: () => void;
 }
@@ -27,11 +28,13 @@ export function MessageComposer({
   sessionExpired,
   onSend,
   onOpenTemplates,
+  onSuggestReply,
   replyTo,
   onClearReply,
 }: MessageComposerProps) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
+  const [suggesting, setSuggesting] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const adjustHeight = useCallback(() => {
@@ -76,6 +79,19 @@ export function MessageComposer({
     [adjustHeight]
   );
 
+  const handleSuggest = useCallback(async () => {
+    if (!onSuggestReply || suggesting || sessionExpired) return;
+    setSuggesting(true);
+    try {
+      const suggestion = await onSuggestReply();
+      setText(suggestion);
+      requestAnimationFrame(adjustHeight);
+      textareaRef.current?.focus();
+    } finally {
+      setSuggesting(false);
+    }
+  }, [adjustHeight, onSuggestReply, sessionExpired, suggesting]);
+
   return (
     <div className="border-t border-slate-800 bg-slate-900 p-3">
       {replyTo && (
@@ -105,6 +121,22 @@ export function MessageComposer({
       )}
 
       <div className="flex items-end gap-2">
+        {onSuggestReply && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-9 shrink-0 px-2 text-slate-400 hover:text-white"
+            onClick={handleSuggest}
+            disabled={sessionExpired || suggesting}
+            title="Sugerir respuesta"
+          >
+            <Bot className="h-4 w-4" />
+            <span className="hidden text-xs sm:inline">
+              {suggesting ? "Sugiriendo..." : "Sugerir"}
+            </span>
+          </Button>
+        )}
+
         <Button
           variant="ghost"
           size="sm"

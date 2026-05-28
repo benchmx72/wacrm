@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { getClientAccountOwnerId } from '@/lib/auth/account';
 import { Contact, MessageTemplate } from '@/types';
 
 export type CustomFieldOperator = 'is' | 'is_not' | 'contains';
@@ -220,6 +221,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
     if (!user) {
       throw new Error('You are not signed in.');
     }
+    const accountOwnerId = await getClientAccountOwnerId(supabase, user.id);
 
     // De-duplicate by phone within the CSV (users can paste duplicates).
     const uniqueByPhone = new Map<string, { phone: string; name?: string }>();
@@ -232,7 +234,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
     const { data: existing, error: lookupErr } = await supabase
       .from('contacts')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', accountOwnerId)
       .in('phone', phones);
     if (lookupErr) {
       throw new Error(`Failed to look up CSV contacts: ${lookupErr.message}`);
@@ -248,7 +250,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
     const missing = phones
       .filter((p) => !byPhone.has(p))
       .map((phone) => ({
-        user_id: user.id,
+        user_id: accountOwnerId,
         phone,
         name: uniqueByPhone.get(phone)?.name ?? null,
       }));
@@ -326,6 +328,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
       if (!user) {
         throw new Error('You are not signed in.');
       }
+      const accountOwnerId = await getClientAccountOwnerId(supabase, user.id);
 
       // ── Step 1: Resolve audience contacts ─────────────────────────
       setProgress(5);
@@ -340,7 +343,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
       const { data: broadcast, error: broadcastError } = await supabase
         .from('broadcasts')
         .insert({
-          user_id: user.id,
+          user_id: accountOwnerId,
           name: payload.name,
           template_name: payload.template.name,
           template_language: payload.template.language ?? 'en_US',

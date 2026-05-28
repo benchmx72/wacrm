@@ -2,12 +2,14 @@
 
 import type { Deal, PipelineStage } from "@/types";
 import { Calendar, Check, X } from "lucide-react";
+import { useLanguage } from "@/hooks/use-language";
 
 interface DealCardProps {
   deal: Deal;
   stage: PipelineStage | null;
   onEdit: (deal: Deal) => void;
   isOverlay?: boolean;
+  canEdit?: boolean;
 }
 
 function formatCurrency(value: number, currency?: string) {
@@ -33,8 +35,18 @@ function initials(name?: string, fallback?: string) {
   return source.charAt(0).toUpperCase();
 }
 
-export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
-  const contactLabel = deal.contact?.name || deal.contact?.phone || "No contact";
+export function DealCard({
+  deal,
+  stage,
+  onEdit,
+  isOverlay,
+  canEdit = true,
+}: DealCardProps) {
+  const { t } = useLanguage();
+  const contactLabel =
+    deal.contact?.name ||
+    deal.contact?.phone ||
+    t("pipelinesPage.dealForm.noContact");
   const assigneeLabel = deal.assignee?.full_name || null;
 
   return (
@@ -43,14 +55,18 @@ export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
       onClick={(e) => {
         // `onClick` still fires after a non-drag tap because the PointerSensor
         // requires 5px movement before it counts as a drag.
-        if (isOverlay) return;
+        if (isOverlay || !canEdit) return;
         e.stopPropagation();
         onEdit(deal);
       }}
-      className={`group relative w-full cursor-pointer rounded-xl border border-slate-700/50 bg-slate-800/70 pl-4 pr-3 py-3 text-left shadow-sm transition-all ${
+      className={`group relative w-full rounded-xl border border-slate-700/50 bg-slate-800/70 pl-4 pr-3 py-3 text-left shadow-sm transition-all ${
+        canEdit && !isOverlay ? "cursor-pointer" : "cursor-default"
+      } ${
         isOverlay
           ? "shadow-xl"
-          : "hover:-translate-y-0.5 hover:border-slate-600 hover:bg-slate-800 hover:shadow-lg"
+          : canEdit
+            ? "hover:-translate-y-0.5 hover:border-slate-600 hover:bg-slate-800 hover:shadow-lg"
+            : ""
       }`}
     >
       {/* 4px left accent bar using stage color */}
@@ -67,13 +83,13 @@ export function DealCard({ deal, stage, onEdit, isOverlay }: DealCardProps) {
         {deal.status === "won" && (
           <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">
             <Check className="h-3 w-3" />
-            Won
+            {t("pipelinesPage.stages.won")}
           </span>
         )}
         {deal.status === "lost" && (
           <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-semibold text-red-400">
             <X className="h-3 w-3" />
-            Lost
+            {t("pipelinesPage.stages.lost")}
           </span>
         )}
       </div>

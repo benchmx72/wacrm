@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { decrypt } from '@/lib/whatsapp/encryption'
+import { getServerAccountOwnerId } from '@/lib/auth/account'
 
 /**
  * Sync message templates from Meta → local message_templates table.
@@ -95,12 +96,13 @@ export async function POST() {
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    const accountOwnerId = await getServerAccountOwnerId(supabase, user.id)
 
     // whatsapp_config holds waba_id + encrypted access_token.
     const { data: config, error: configError } = await supabase
       .from('whatsapp_config')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', accountOwnerId)
       .single()
 
     if (configError || !config) {
@@ -173,7 +175,7 @@ export async function POST() {
       const footer = (t.components ?? []).find((c) => c.type === 'FOOTER')
 
       const row = {
-        user_id: user.id,
+        user_id: accountOwnerId,
         name: t.name,
         category: normalizeCategory(t.category),
         language: t.language,
@@ -188,7 +190,7 @@ export async function POST() {
       const { data: existing, error: lookupErr } = await supabase
         .from('message_templates')
         .select('id')
-        .eq('user_id', user.id)
+        .eq('user_id', accountOwnerId)
         .eq('name', t.name)
         .eq('language', t.language)
         .maybeSingle()

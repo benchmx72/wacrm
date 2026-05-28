@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
+import { useLanguage } from "@/hooks/use-language";
+import { hasPermission } from "@/lib/auth/roles";
 import { LogOut, Menu, Settings as SettingsIcon, User } from "lucide-react";
 import {
   Avatar,
@@ -17,22 +19,27 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-const pageTitles: Record<string, string> = {
-  "/dashboard": "Dashboard",
-  "/inbox": "Inbox",
-  "/contacts": "Contacts",
-  "/pipelines": "Pipelines",
-  "/broadcasts": "Broadcasts",
-  "/automations": "Automations",
-  "/settings": "Settings",
-};
+const pageTitleKeys = {
+  "/dashboard": "nav.dashboard",
+  "/inbox": "nav.inbox",
+  "/contacts": "nav.contacts",
+  "/pipelines": "nav.pipelines",
+  "/appointments": "nav.appointments",
+  "/broadcasts": "nav.broadcasts",
+  "/automations": "nav.automations",
+  "/flows": "nav.flows",
+  "/ai-playground": "nav.aiPlayground",
+  "/settings": "nav.settings",
+} as const;
 
-function getPageTitle(pathname: string): string {
-  if (pageTitles[pathname]) return pageTitles[pathname];
-  const match = Object.entries(pageTitles).find(([path]) =>
+function getPageTitleKey(pathname: string): (typeof pageTitleKeys)[keyof typeof pageTitleKeys] {
+  if (pathname in pageTitleKeys) {
+    return pageTitleKeys[pathname as keyof typeof pageTitleKeys];
+  }
+  const match = Object.entries(pageTitleKeys).find(([path]) =>
     pathname.startsWith(path),
   );
-  return match ? match[1] : "Dashboard";
+  return match ? match[1] : "nav.dashboard";
 }
 
 interface HeaderProps {
@@ -44,7 +51,8 @@ interface HeaderProps {
 export function Header({ onOpenSidebar }: HeaderProps) {
   const pathname = usePathname();
   const { profile, signOut } = useAuth();
-  const title = getPageTitle(pathname);
+  const { t } = useLanguage();
+  const title = t(getPageTitleKey(pathname));
 
   const initial =
     profile?.full_name?.charAt(0)?.toUpperCase() ??
@@ -58,7 +66,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
         <button
           type="button"
           onClick={onOpenSidebar}
-          aria-label="Open menu"
+          aria-label={t("common.openMenu")}
           className="flex h-10 w-10 items-center justify-center rounded-md text-slate-300 transition-colors hover:bg-slate-800 hover:text-white lg:hidden"
         >
           <Menu className="h-5 w-5" />
@@ -71,13 +79,13 @@ export function Header({ onOpenSidebar }: HeaderProps) {
       <DropdownMenu>
         <DropdownMenuTrigger
           className="flex items-center gap-2 rounded-md px-1 py-1 transition-colors hover:bg-slate-800/70 focus:bg-slate-800/70 focus:outline-none data-popup-open:bg-slate-800/70 sm:gap-3 sm:pl-1 sm:pr-3"
-          aria-label="Open account menu"
+          aria-label={t("common.openAccountMenu")}
         >
           <Avatar className="size-8">
             {profile?.avatar_url ? (
               <AvatarImage
                 src={profile.avatar_url}
-                alt={profile.full_name ?? "Avatar"}
+                alt={profile.full_name ?? t("common.avatar")}
               />
             ) : null}
             <AvatarFallback className="bg-primary/10 text-sm font-medium text-primary">
@@ -85,7 +93,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
             </AvatarFallback>
           </Avatar>
           <span className="hidden text-sm font-medium text-white sm:inline">
-            {profile?.full_name ?? "User"}
+            {profile?.full_name ?? t("common.user")}
           </span>
         </DropdownMenuTrigger>
         <DropdownMenuContent
@@ -95,7 +103,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
         >
           <div className="px-2 py-1.5">
             <p className="truncate text-sm font-medium text-white">
-              {profile?.full_name ?? "User"}
+              {profile?.full_name ?? t("common.user")}
             </p>
             <p className="truncate text-xs text-slate-400">
               {profile?.email ?? ""}
@@ -111,18 +119,22 @@ export function Header({ onOpenSidebar }: HeaderProps) {
             }
           >
             <User className="size-4" />
-            Profile
+            {t("nav.profile")}
           </DropdownMenuItem>
           <DropdownMenuItem
             render={
               <Link
-                href="/settings?tab=whatsapp"
+                href={
+                  hasPermission(profile?.role, "manage_whatsapp")
+                    ? "/settings?tab=whatsapp"
+                    : "/settings?tab=profile"
+                }
                 className="text-slate-200 focus:bg-slate-800 focus:text-white"
               />
             }
           >
             <SettingsIcon className="size-4" />
-            Settings
+            {t("nav.settings")}
           </DropdownMenuItem>
           <DropdownMenuSeparator className="bg-slate-800" />
           <DropdownMenuItem
@@ -130,7 +142,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
             className="text-slate-200 focus:bg-slate-800 focus:text-white"
           >
             <LogOut className="size-4" />
-            Sign out
+            {t("nav.signOut")}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { hasPermission } from "@/lib/auth/roles";
 import { cn } from "@/lib/utils";
 import type {
   Conversation,
@@ -144,7 +145,8 @@ export function MessageThread({
   resyncToken = 0,
   onRefresh,
 }: MessageThreadProps) {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+  const canSendMessages = hasPermission(profile?.role, "send_messages");
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
@@ -545,6 +547,22 @@ export function MessageThread({
     [conversation, onNewMessage, onUpdateMessage],
   );
 
+  const handleSuggestReply = useCallback(async () => {
+    if (!conversation) return "";
+    const res = await fetch("/api/ai/inbox/suggest", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ conversation_id: conversation.id }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const reason = data?.error ?? "No se pudo sugerir una respuesta";
+      toast.error(reason);
+      throw new Error(reason);
+    }
+    return String(data.suggestion ?? "").trim();
+  }, [conversation]);
+
   // Build a quick id → Message map so reply quotes can be rendered without
   // an extra fetch — the thread already holds the full conversation.
   const messagesById = useMemo(() => {
@@ -894,24 +912,34 @@ export function MessageThread({
                       const next = own?.emoji === emoji ? "" : emoji;
                       void postReaction(msg.id, next);
                     };
-                    return (
-                      <MessageActions
-                        key={msg.id}
-                        message={msg}
-                        onReply={() => handleStartReply(msg)}
-                        onReact={(emoji) => {
-                          if (emoji) void postReaction(msg.id, emoji);
-                        }}
-                      >
+                      const bubble = (
                         <MessageBubble
                           message={msg}
                           reply={reply}
                           reactions={msgReactions}
                           currentUserId={user?.id}
-                          onToggleReaction={handlePillToggle}
+                          onToggleReaction={
+                            canSendMessages ? handlePillToggle : undefined
+                          }
                         />
-                      </MessageActions>
-                    );
+                      );
+
+                      if (!canSendMessages) {
+                        return <div key={msg.id}>{bubble}</div>;
+                      }
+
+                      return (
+                        <MessageActions
+                          key={msg.id}
+                          message={msg}
+                          onReply={() => handleStartReply(msg)}
+                          onReact={(emoji) => {
+                            if (emoji) void postReaction(msg.id, emoji);
+                          }}
+                        >
+                          {bubble}
+                        </MessageActions>
+                      );
                   })}
                 </div>
               </div>
@@ -921,20 +949,25 @@ export function MessageThread({
       </div>
 
       {/* Composer */}
-      <MessageComposer
-        conversationId={conversation.id}
-        sessionExpired={sessionInfo.expired}
-        onSend={handleSend}
-        onOpenTemplates={handleOpenTemplates}
-        replyTo={replyTo}
-        onClearReply={() => setReplyTo(null)}
-      />
+      {canSendMessages && (
+        <>
+          <MessageComposer
+            conversationId={conversation.id}
+            sessionExpired={sessionInfo.expired}
+            onSend={handleSend}
+            onOpenTemplates={handleOpenTemplates}
+            onSuggestReply={handleSuggestReply}
+            replyTo={replyTo}
+            onClearReply={() => setReplyTo(null)}
+          />
 
-      <TemplatePicker
-        open={templateModalOpen}
-        onOpenChange={setTemplateModalOpen}
-        onSelect={handleSendTemplate}
-      />
+          <TemplatePicker
+            open={templateModalOpen}
+            onOpenChange={setTemplateModalOpen}
+            onSelect={handleSendTemplate}
+          />
+        </>
+      )}
     </div>
   );
 }

@@ -11,10 +11,15 @@ import { ContactSidebar } from "@/components/inbox/contact-sidebar";
 import { toast } from "sonner";
 import { WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/use-auth";
+import { hasPermission } from "@/lib/auth/roles";
+import { getClientAccountOwnerId } from "@/lib/auth/account";
 
 export default function InboxPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { profile } = useAuth();
+  const canUseDemoTools = hasPermission(profile?.role, "use_demo_tools");
   /**
    * `?c=<id>` deep-link support. Used when landing here from the
    * dashboard's recent-conversations list so the right thread opens
@@ -38,6 +43,7 @@ export default function InboxPage() {
    * once on conversationId-change as usual.
    */
   const [resyncToken, setResyncToken] = useState(0);
+  const [creatingDemo, setCreatingDemo] = useState(false);
 
   // Fire the deep-link auto-select exactly once per URL — subsequent
   // list refreshes (realtime, manual refetch) must not snap the user
@@ -134,10 +140,11 @@ export default function InboxPage() {
 
       // Table is `whatsapp_config` (singular) — the previous "whatsapp_configs"
       // query always returned no rows, so the banner always showed "not connected".
+      const accountOwnerId = await getClientAccountOwnerId(supabase, user.id);
       const { data } = await supabase
         .from("whatsapp_config")
         .select("status")
-        .eq("user_id", user.id)
+        .eq("user_id", accountOwnerId)
         .maybeSingle();
 
       setWhatsappConnected(data?.status === "connected");
@@ -334,6 +341,36 @@ export default function InboxPage() {
     setResyncToken((n) => n + 1);
   }, []);
 
+  const handleCreateDemoInbox = useCallback(async (
+    scenario: "medical" | "legal" | "general",
+  ) => {
+    if (creatingDemo) return;
+    setCreatingDemo(true);
+    try {
+      const res = await fetch("/api/demo/inbox", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scenario }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "No se pudo crear demo");
+
+      const conversation = data.conversation as Conversation;
+      setConversations((prev) => [conversation, ...prev]);
+      setActiveConversation(conversation);
+      setActiveContact(conversation.contact ?? null);
+      setMessages([]);
+      autoSelectedForDeepLinkRef.current = conversation.id;
+      router.replace(`/inbox?c=${conversation.id}`, { scroll: false });
+      setResyncToken((n) => n + 1);
+      toast.success("Demo inbox creado");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo crear demo");
+    } finally {
+      setCreatingDemo(false);
+    }
+  }, [creatingDemo, router]);
+
   const handleConversationsLoaded = useCallback(
     (loaded: Conversation[]) => {
       setConversations(loaded);
@@ -524,6 +561,8 @@ export default function InboxPage() {
             conversations={conversations}
             onConversationsLoaded={handleConversationsLoaded}
             resyncToken={resyncToken}
+            onCreateDemo={canUseDemoTools ? handleCreateDemoInbox : undefined}
+            creatingDemo={creatingDemo}
           />
         </div>
 
@@ -554,7 +593,7 @@ export default function InboxPage() {
 
         {/* Right panel: Contact sidebar — desktop only. */}
         <div className="hidden lg:block">
-          <ContactSidebar contact={activeContact} />
+          <ContactSidebar contact={activeContact} canUseDemoTools={canUseDemoTools} />
         </div>
       </div>
     </div>

@@ -2,13 +2,18 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { getClientAccountOwnerId } from "@/lib/auth/account";
 import { cn } from "@/lib/utils";
-import type { Contact, Deal, ContactNote, Tag } from "@/types";
+import type { Appointment, Contact, Deal, ContactNote, Tag } from "@/types";
 import {
   Phone,
   Mail,
   Copy,
   Check,
+  CalendarPlus,
+  CheckCircle2,
+  CircleSlash,
+  ClipboardCheck,
   User,
   Tag as TagIcon,
   DollarSign,
@@ -21,26 +26,40 @@ import { format } from "date-fns";
 
 interface ContactSidebarProps {
   contact: Contact | null;
+  canUseDemoTools?: boolean;
 }
 
-export function ContactSidebar({ contact }: ContactSidebarProps) {
+export function ContactSidebar({
+  contact,
+  canUseDemoTools = false,
+}: ContactSidebarProps) {
   const [copied, setCopied] = useState(false);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [notes, setNotes] = useState<ContactNote[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [tags, setTags] = useState<(Tag & { contact_tag_id: string })[]>([]);
   const [newNote, setNewNote] = useState("");
   const [addingNote, setAddingNote] = useState(false);
+  const [proposingAppointment, setProposingAppointment] = useState(false);
+  const [updatingAppointmentId, setUpdatingAppointmentId] = useState<
+    string | null
+  >(null);
 
   const fetchContactData = useCallback(async () => {
     if (!contact) return;
 
     const supabase = createClient();
 
-    // Fetch deals, notes, and tags in parallel
-    const [dealsRes, notesRes, tagsRes] = await Promise.all([
+    // Fetch deals, appointments, notes, and tags in parallel
+    const [dealsRes, appointmentsRes, notesRes, tagsRes] = await Promise.all([
       supabase
         .from("deals")
         .select("*, stage:pipeline_stages(*)")
+        .eq("contact_id", contact.id)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("appointments")
+        .select("*")
         .eq("contact_id", contact.id)
         .order("created_at", { ascending: false }),
       supabase
@@ -55,6 +74,7 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
     ]);
 
     if (dealsRes.data) setDeals(dealsRes.data);
+    if (appointmentsRes.data) setAppointments(appointmentsRes.data);
     if (notesRes.data) setNotes(notesRes.data);
     if (tagsRes.data) {
       const mapped = tagsRes.data
@@ -93,12 +113,14 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
       data: { session },
     } = await supabase.auth.getSession();
     const user = session?.user;
+    if (!user) return;
+    const accountOwnerId = await getClientAccountOwnerId(supabase, user.id);
 
     const { data, error } = await supabase
       .from("contact_notes")
       .insert({
         contact_id: contact.id,
-        user_id: user?.id,
+        user_id: accountOwnerId,
         note_text: newNote.trim(),
       })
       .select()
@@ -111,6 +133,51 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
     setAddingNote(false);
   }, [contact, newNote]);
 
+  const handleProposeAppointment = useCallback(async () => {
+    if (!contact || proposingAppointment) return;
+    setProposingAppointment(true);
+    const res = await fetch("/api/demo/appointments/propose", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contact_id: contact.id,
+        appointment_type: "Consulta de seguimiento",
+        preferred_time: "Por confirmar",
+        notes: "Propuesta desde Inbox. Confirmar disponibilidad antes de agendar.",
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.note) {
+      setNotes((prev) => [data.note, ...prev]);
+      if (data.appointment) {
+        setAppointments((prev) => [data.appointment, ...prev]);
+      }
+    }
+    setProposingAppointment(false);
+  }, [contact, proposingAppointment]);
+
+  const updateAppointmentStatus = useCallback(
+    async (appointmentId: string, status: Appointment["status"]) => {
+      if (updatingAppointmentId) return;
+      setUpdatingAppointmentId(appointmentId);
+      const res = await fetch(`/api/appointments/${appointmentId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.appointment) {
+        setAppointments((prev) =>
+          prev.map((appointment) =>
+            appointment.id === appointmentId ? data.appointment : appointment,
+          ),
+        );
+      }
+      setUpdatingAppointmentId(null);
+    },
+    [updatingAppointmentId],
+  );
+
   if (!contact) {
     return (
       <div className="flex h-full w-70 items-center justify-center border-l border-slate-800 bg-slate-900">
@@ -121,6 +188,12 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
 
   const displayName = contact.name || contact.phone;
   const initials = displayName.charAt(0).toUpperCase();
+  const statusLabels: Record<Appointment["status"], string> = {
+    proposed: "Propuesta",
+    confirmed: "Confirmada",
+    cancelled: "Cancelada",
+    completed: "Completada",
+  };
 
   return (
     <div className="flex h-full w-70 flex-col border-l border-slate-800 bg-slate-900">
@@ -172,6 +245,23 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
 
           {/* Divider */}
           <div className="my-4 border-t border-slate-800" />
+
+          {canUseDemoTools && (
+            <>
+              <Button
+                type="button"
+                onClick={handleProposeAppointment}
+                disabled={proposingAppointment}
+                className="w-full"
+              >
+                <CalendarPlus className="h-4 w-4" />
+                {proposingAppointment ? "Guardando cita..." : "Proponer cita"}
+              </Button>
+
+              {/* Divider */}
+              <div className="my-4 border-t border-slate-800" />
+            </>
+          )}
 
           {/* Tags */}
           <div>
@@ -236,6 +326,96 @@ export function ContactSidebar({ contact }: ContactSidebarProps) {
                           {deal.stage.name}
                         </span>
                       )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Divider */}
+          <div className="my-4 border-t border-slate-800" />
+
+          {/* Appointments */}
+          <div>
+            <div className="flex items-center gap-2 px-1 text-xs font-medium uppercase tracking-wider text-slate-500">
+              <CalendarPlus className="h-3 w-3" />
+              Citas
+            </div>
+            <div className="mt-2 space-y-2">
+              {appointments.length === 0 ? (
+                <p className="px-1 text-xs text-slate-600">Sin citas</p>
+              ) : (
+                appointments.map((appointment) => (
+                  <div
+                    key={appointment.id}
+                    className="rounded-lg bg-slate-800 px-3 py-2"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-medium text-white">
+                        {appointment.title}
+                      </p>
+                      <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                        {statusLabels[appointment.status]}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs text-slate-400">
+                      {appointment.preferred_time ?? "Por confirmar"}
+                    </p>
+                    {appointment.notes && (
+                      <p className="mt-1 line-clamp-2 text-xs text-slate-500">
+                        {appointment.notes}
+                      </p>
+                    )}
+                    <div className="mt-2 grid grid-cols-3 gap-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="xs"
+                        disabled={
+                          updatingAppointmentId === appointment.id ||
+                          appointment.status === "confirmed"
+                        }
+                        onClick={() =>
+                          updateAppointmentStatus(appointment.id, "confirmed")
+                        }
+                        className="h-7 px-1 text-[10px] text-primary hover:bg-primary/10 hover:text-primary"
+                      >
+                        <CheckCircle2 className="h-3 w-3" />
+                        Confirmar
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="xs"
+                        disabled={
+                          updatingAppointmentId === appointment.id ||
+                          appointment.status === "completed"
+                        }
+                        onClick={() =>
+                          updateAppointmentStatus(appointment.id, "completed")
+                        }
+                        className="h-7 px-1 text-[10px] text-slate-300 hover:bg-slate-700 hover:text-white"
+                      >
+                        <ClipboardCheck className="h-3 w-3" />
+                        Completar
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="xs"
+                        disabled={
+                          updatingAppointmentId === appointment.id ||
+                          appointment.status === "cancelled"
+                        }
+                        onClick={() =>
+                          updateAppointmentStatus(appointment.id, "cancelled")
+                        }
+                        className="h-7 px-1 text-[10px] text-red-400 hover:bg-red-500/10 hover:text-red-300"
+                      >
+                        <CircleSlash className="h-3 w-3" />
+                        Cancelar
+                      </Button>
                     </div>
                   </div>
                 ))

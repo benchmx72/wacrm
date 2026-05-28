@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/flows/admin-client'
 import { getFlowTemplate } from '@/lib/flows/templates'
+import { getServerAccountOwnerId } from '@/lib/auth/account'
 
 /**
  * GET /api/flows — list the caller's flows.
@@ -49,7 +50,8 @@ export async function POST(request: Request) {
   if (!guard.ok) {
     return NextResponse.json(guard.body, { status: guard.status })
   }
-  const { userId } = guard
+  const { userId, supabase } = guard
+  const accountOwnerId = await getServerAccountOwnerId(supabase, userId)
 
   const body = (await request.json().catch(() => null)) as
     | {
@@ -84,7 +86,7 @@ export async function POST(request: Request) {
     const { data: flow, error: flowErr } = await admin
       .from('flows')
       .insert({
-        user_id: userId,
+        user_id: accountOwnerId,
         name: body.name?.trim() || template.name,
         description: template.description,
         status: 'draft',
@@ -132,7 +134,7 @@ export async function POST(request: Request) {
   const { data, error } = await admin
     .from('flows')
     .insert({
-      user_id: userId,
+      user_id: accountOwnerId,
       name: body.name.trim(),
       description: body.description ?? null,
       status: 'draft',

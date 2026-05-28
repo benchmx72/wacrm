@@ -16,6 +16,17 @@ import {
 } from "@/components/ui/card";
 import { MessageSquare } from "lucide-react";
 
+function authErrorMessage(message: string) {
+  const normalized = message.toLowerCase();
+  if (normalized.includes("invalid login credentials")) {
+    return "Correo o contraseña incorrectos.";
+  }
+  if (normalized.includes("email not confirmed")) {
+    return "Tu correo aun no esta confirmado. Revisa tu invitacion o tu bandeja de entrada.";
+  }
+  return message;
+}
+
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -35,7 +46,7 @@ export default function LoginPage() {
     });
 
     if (error) {
-      setError(error.message);
+      setError(authErrorMessage(error.message));
       setLoading(false);
       return;
     }
@@ -50,9 +61,9 @@ export default function LoginPage() {
           <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
             <MessageSquare className="h-6 w-6 text-primary" />
           </div>
-          <CardTitle className="text-xl text-white">Welcome back</CardTitle>
+          <CardTitle className="text-xl text-white">Iniciar sesion</CardTitle>
           <CardDescription className="text-slate-400">
-            Sign in to your account
+            Accede al CRM con el correo de tu invitacion.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -65,12 +76,12 @@ export default function LoginPage() {
 
             <div className="flex flex-col gap-2">
               <Label htmlFor="email" className="text-slate-300">
-                Email
+                Correo
               </Label>
               <Input
                 id="email"
                 type="email"
-                placeholder="you@example.com"
+                placeholder="tu@empresa.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -81,19 +92,19 @@ export default function LoginPage() {
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="password" className="text-slate-300">
-                  Password
+                  Contrasena
                 </Label>
                 <Link
                   href="/forgot-password"
                   className="text-sm text-primary hover:text-primary/80"
                 >
-                  Forgot password?
+                  Olvidaste tu contrasena?
                 </Link>
               </div>
               <Input
                 id="password"
                 type="password"
-                placeholder="Enter your password"
+                placeholder="Escribe tu contrasena"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -106,18 +117,12 @@ export default function LoginPage() {
               disabled={loading}
               className="mt-2 h-10 w-full bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
             >
-              {loading ? "Signing in..." : "Sign in"}
+              {loading ? "Entrando..." : "Entrar"}
             </Button>
           </form>
 
           <p className="mt-6 text-center text-sm text-slate-400">
-            Don&apos;t have an account?{" "}
-            <Link
-              href="/signup"
-              className="text-primary hover:text-primary/80"
-            >
-              Create account
-            </Link>
+            El acceso se crea por invitacion del administrador.
           </p>
         </CardContent>
       </Card>

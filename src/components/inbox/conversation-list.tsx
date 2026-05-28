@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import type { Conversation, ConversationStatus } from "@/types";
-import { Search, ChevronDown } from "lucide-react";
+import { Bot, BriefcaseBusiness, Search, ChevronDown, Stethoscope } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { Input } from "@/components/ui/input";
 import {
@@ -28,6 +28,8 @@ interface ConversationListProps {
    * or the tab was throttled. Optional so existing callers keep working.
    */
   resyncToken?: number;
+  onCreateDemo?: (scenario: "medical" | "legal" | "general") => void;
+  creatingDemo?: boolean;
 }
 
 const STATUS_COLORS: Record<ConversationStatus, string> = {
@@ -49,6 +51,8 @@ export function ConversationList({
   conversations,
   onConversationsLoaded,
   resyncToken = 0,
+  onCreateDemo,
+  creatingDemo = false,
 }: ConversationListProps) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<ConversationStatus | "all">("all");
@@ -150,6 +154,44 @@ export function ConversationList({
     <div className="flex h-full w-full flex-col border-r border-slate-800 bg-slate-900 lg:w-80">
       {/* Search + Filter */}
       <div className="space-y-2 border-b border-slate-800 p-3">
+        {onCreateDemo && (
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              disabled={creatingDemo}
+              className="inline-flex h-8 w-full items-center justify-center gap-2 rounded-lg bg-primary px-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
+            >
+              <Bot className="h-4 w-4" />
+              {creatingDemo ? "Creando demo..." : "Crear demo inbox"}
+              <ChevronDown className="h-3 w-3" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="start"
+              className="w-72 border-slate-700 bg-slate-800"
+            >
+              <DropdownMenuItem
+                onClick={() => onCreateDemo("medical")}
+                className="text-sm text-slate-200"
+              >
+                <Stethoscope className="mr-2 h-4 w-4 text-primary" />
+                Demo clinica medica
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => onCreateDemo("legal")}
+                className="text-sm text-slate-200"
+              >
+                <BriefcaseBusiness className="mr-2 h-4 w-4 text-primary" />
+                Demo despacho legal
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => onCreateDemo("general")}
+                className="text-sm text-slate-200"
+              >
+                <Bot className="mr-2 h-4 w-4 text-primary" />
+                Demo servicios
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
           <Input

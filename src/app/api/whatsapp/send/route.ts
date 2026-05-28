@@ -14,6 +14,7 @@ import {
   rateLimitResponse,
   RATE_LIMITS,
 } from '@/lib/rate-limit'
+import { getServerAccountOwnerId } from '@/lib/auth/account'
 
 export async function POST(request: Request) {
   try {
@@ -30,6 +31,7 @@ export async function POST(request: Request) {
         { status: 401 }
       )
     }
+    const accountOwnerId = await getServerAccountOwnerId(supabase, user.id)
 
     // Per-user rate limit. Bucket key is scoped to this route so
     // `/broadcast` has an independent budget.
@@ -75,7 +77,7 @@ export async function POST(request: Request) {
       .from('conversations')
       .select('*, contact:contacts(*)')
       .eq('id', conversation_id)
-      .eq('user_id', user.id)
+      .eq('user_id', accountOwnerId)
       .single()
 
     if (convError || !conversation) {
@@ -106,7 +108,7 @@ export async function POST(request: Request) {
     const { data: config, error: configError } = await supabase
       .from('whatsapp_config')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', accountOwnerId)
       .single()
 
     if (configError || !config) {
@@ -297,7 +299,7 @@ export async function POST(request: Request) {
           ended_at: new Date().toISOString(),
           end_reason: 'agent_replied',
         })
-        .eq('user_id', user.id)
+        .eq('user_id', accountOwnerId)
         .eq('contact_id', contact.id)
         .eq('status', 'active')
       if (pauseErr) {

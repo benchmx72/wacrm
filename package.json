@@ -2,7 +2,7 @@
   "name": "wacrm",
   "version": "0.2.0",
   "private": true,
-  "description": "Self-hostable CRM template for WhatsApp built on Next.js and Supabase — shared inbox, contacts, sales pipelines, broadcasts, and no-code automations.",
+  "description": "SophIA CRM: CRM con agentes IA para atencion, seguimiento y citas.",
   "license": "MIT",
   "author": "Arnas Donauskas",
   "homepage": "https://github.com/ArnasDon/wacrm",

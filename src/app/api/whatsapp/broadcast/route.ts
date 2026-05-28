@@ -13,6 +13,7 @@ import {
   rateLimitResponse,
   RATE_LIMITS,
 } from '@/lib/rate-limit'
+import { getServerAccountOwnerId } from '@/lib/auth/account'
 
 interface BroadcastResult {
   phone: string
@@ -60,6 +61,7 @@ export async function POST(request: Request) {
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    const accountOwnerId = await getServerAccountOwnerId(supabase, user.id)
 
     // Per-user broadcast budget. Note: this limits how often a user
     // can *start* a campaign, not how many messages go out inside
@@ -110,7 +112,7 @@ export async function POST(request: Request) {
     const { data: config, error: configError } = await supabase
       .from('whatsapp_config')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', accountOwnerId)
       .single()
 
     if (configError || !config) {

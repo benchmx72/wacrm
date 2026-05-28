@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { getClientAccountOwnerId } from '@/lib/auth/account';
 import { toast } from 'sonner';
 import { MessageTemplate } from '@/types';
 import { Step1ChooseTemplate } from '@/components/broadcasts/step1-choose-template';
@@ -90,9 +91,10 @@ export default function NewBroadcastPage() {
       toast.error('Not signed in.');
       return;
     }
+    const accountOwnerId = await getClientAccountOwnerId(supabase, user.id);
 
     const { error } = await supabase.from('broadcasts').insert({
-      user_id: user.id,
+      user_id: accountOwnerId,
       name: name.trim(),
       template_name: template.name,
       template_language: template.language ?? 'en_US',

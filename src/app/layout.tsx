@@ -4,6 +4,7 @@ import Script from "next/script";
 import { Toaster } from "sonner";
 import "./globals.css";
 import { ThemeProvider } from "@/hooks/use-theme";
+import { LanguageProvider } from "@/hooks/use-language";
 import { DEFAULT_THEME, STORAGE_KEY, THEME_IDS } from "@/lib/themes";
 
 const inter = Inter({
@@ -13,10 +14,10 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "wacrm",
-    template: "%s — wacrm",
+    default: "SophIA CRM",
+    template: "%s - SophIA CRM",
   },
-  description: "Self-hostable CRM template for WhatsApp.",
+  description: "CRM con agentes IA para atencion, seguimiento y citas.",
   robots: {
     index: false,
     follow: false,
@@ -67,7 +68,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="es-419"
       data-theme={DEFAULT_THEME}
       className={`${inter.variable} h-full antialiased`}
     >
@@ -80,18 +81,20 @@ export default function RootLayout({
       </head>
       <body className="min-h-full bg-background text-foreground font-sans">
         <ThemeProvider>
-          {children}
-          <Toaster
-            theme="dark"
-            position="top-right"
-            toastOptions={{
-              style: {
-                background: "rgb(30 41 59)",
-                border: "1px solid rgb(51 65 85)",
-                color: "white",
-              },
-            }}
-          />
+          <LanguageProvider>
+            {children}
+            <Toaster
+              theme="dark"
+              position="top-right"
+              toastOptions={{
+                style: {
+                  background: "rgb(30 41 59)",
+                  border: "1px solid rgb(51 65 85)",
+                  color: "white",
+                },
+              }}
+            />
+          </LanguageProvider>
         </ThemeProvider>
       </body>
     </html>

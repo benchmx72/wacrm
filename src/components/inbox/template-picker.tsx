@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { getClientAccountOwnerId } from "@/lib/auth/account";
 import type { MessageTemplate } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -76,6 +77,7 @@ export function TemplatePicker({
         }
         return;
       }
+      const accountOwnerId = await getClientAccountOwnerId(supabase, user.id);
 
       // Only Approved templates are sendable through Meta — anything else
       // would 400 on the send route. Hide them rather than letting the
@@ -83,7 +85,7 @@ export function TemplatePicker({
       const { data, error } = await supabase
         .from("message_templates")
         .select("*")
-        .eq("user_id", user.id)
+        .eq("user_id", accountOwnerId)
         .eq("status", "Approved")
         .order("created_at", { ascending: false });
 

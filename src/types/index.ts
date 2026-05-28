@@ -1,10 +1,18 @@
+import type { AppRole } from "@/lib/auth/roles";
+
+export type MessagingChannel = 'whatsapp' | 'telegram';
+
 export interface Profile {
   id: string;
   user_id: string;
+  account_owner_id?: string;
+  invited_by?: string | null;
   full_name: string;
   email: string;
   avatar_url?: string;
-  role: string;
+  role: AppRole | string;
+  status?: 'active' | 'invited' | 'disabled';
+  messaging_channel?: MessagingChannel;
   /**
    * Opted-in beta feature keys for this account. The column survives
    * for future beta gates; no current feature reads it (Flows was
@@ -196,6 +204,44 @@ export interface Deal {
   contact?: Contact;
   stage?: PipelineStage;
   assignee?: Profile;
+}
+
+export interface TelegramConfig {
+  id: string;
+  user_id: string;
+  bot_token: string;
+  bot_username?: string | null;
+  webhook_secret?: string | null;
+  status: 'connected' | 'disconnected';
+  connected_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export type AppointmentStatus = 'proposed' | 'confirmed' | 'cancelled' | 'completed';
+
+export interface Appointment {
+  id: string;
+  user_id: string;
+  contact_id?: string | null;
+  deal_id?: string | null;
+  conversation_id?: string | null;
+  title: string;
+  appointment_type: string;
+  status: AppointmentStatus;
+  preferred_time?: string | null;
+  scheduled_start?: string | null;
+  scheduled_end?: string | null;
+  timezone?: string | null;
+  location?: string | null;
+  notes?: string | null;
+  calendar_provider?: string | null;
+  calendar_event_id?: string | null;
+  metadata?: Record<string, unknown>;
+  created_at: string;
+  updated_at?: string;
+  contact?: Contact;
+  deal?: Deal;
 }
 
 export type BroadcastStatus = 'draft' | 'scheduled' | 'sending' | 'sent' | 'failed';

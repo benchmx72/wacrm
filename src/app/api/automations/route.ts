@@ -7,6 +7,7 @@ import {
   validateStepsForActivation,
   validateTriggerForActivation,
 } from '@/lib/automations/validate'
+import { getServerAccountOwnerId } from '@/lib/auth/account'
 
 export async function GET() {
   const supabase = await createClient()
@@ -29,6 +30,7 @@ export async function POST(request: Request) {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const accountOwnerId = await getServerAccountOwnerId(supabase, user.id)
 
   const body = await request.json().catch(() => null)
   if (!body) return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
@@ -82,7 +84,7 @@ export async function POST(request: Request) {
   const { data: automation, error: insertErr } = await admin
     .from('automations')
     .insert({
-      user_id: user.id,
+      user_id: accountOwnerId,
       name: effectiveName,
       description: effectiveDescription ?? null,
       trigger_type: effectiveTriggerType,

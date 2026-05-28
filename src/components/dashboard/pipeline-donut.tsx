@@ -2,6 +2,8 @@
 
 import { GitBranch } from 'lucide-react'
 import type { PipelineDonutData } from '@/lib/dashboard/types'
+import { useLanguage } from '@/hooks/use-language'
+import { LOCALE_CURRENCY } from '@/lib/i18n'
 import { EmptyState } from './empty-state'
 import { Skeleton } from './skeleton'
 
@@ -11,12 +13,13 @@ interface PipelineDonutProps {
 }
 
 export function PipelineDonut({ data, loading }: PipelineDonutProps) {
+  const { locale, t } = useLanguage()
   return (
     <section className="flex h-full flex-col rounded-xl border border-slate-800 bg-slate-900">
       <header className="border-b border-slate-800 px-5 py-4">
-        <h2 className="text-sm font-semibold text-white">Pipeline Value</h2>
+        <h2 className="text-sm font-semibold text-white">{t('dashboard.pipeline.title')}</h2>
         <p className="mt-0.5 text-xs text-slate-500">
-          Open deals by stage
+          {t('dashboard.pipeline.subtitle')}
         </p>
       </header>
 
@@ -26,12 +29,12 @@ export function PipelineDonut({ data, loading }: PipelineDonutProps) {
         ) : data.stages.length === 0 ? (
           <EmptyState
             icon={GitBranch}
-            title="No open deals yet"
-            hint="Create deals in Pipelines to see stage breakdowns here."
+            title={t('dashboard.pipeline.emptyTitle')}
+            hint={t('dashboard.pipeline.emptyHint')}
           />
         ) : (
           <>
-            <Donut data={data} />
+            <Donut data={data} locale={locale} />
             <ul className="mt-5 space-y-2">
               {data.stages.map((s) => (
                 <li key={s.id} className="flex items-center gap-3 text-xs">
@@ -42,10 +45,11 @@ export function PipelineDonut({ data, loading }: PipelineDonutProps) {
                   />
                   <span className="flex-1 truncate text-slate-300">{s.name}</span>
                   <span className="text-slate-500 tabular-nums">
-                    {s.dealCount} deal{s.dealCount === 1 ? '' : 's'}
+                    {s.dealCount.toLocaleString(locale)}{' '}
+                    {t(s.dealCount === 1 ? 'dashboard.pipeline.deal' : 'dashboard.pipeline.deals')}
                   </span>
                   <span className="w-20 text-right text-slate-300 tabular-nums">
-                    {formatCurrencyShort(s.totalValue)}
+                    {formatCurrencyShort(s.totalValue, locale)}
                   </span>
                 </li>
               ))}
@@ -63,7 +67,8 @@ export function PipelineDonut({ data, loading }: PipelineDonutProps) {
 // between segments are implied by a thin slate-900 stroke between
 // them for a cleaner look.
 // ------------------------------------------------------------
-function Donut({ data }: { data: PipelineDonutData }) {
+function Donut({ data, locale }: { data: PipelineDonutData; locale: string }) {
+  const { t } = useLanguage()
   const size = 200
   const r = 80
   const ringWidth = 18
@@ -93,7 +98,7 @@ function Donut({ data }: { data: PipelineDonutData }) {
 
   return (
     <div className="flex items-center justify-center">
-      <svg viewBox={`0 0 ${size} ${size}`} className="h-48 w-48" role="img" aria-label="Pipeline value by stage">
+      <svg viewBox={`0 0 ${size} ${size}`} className="h-48 w-48" role="img" aria-label={t('dashboard.pipeline.aria')}>
         {/* background ring */}
         <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgb(30 41 59)" strokeWidth={ringWidth} />
         {segments.map((seg) => (
@@ -113,7 +118,7 @@ function Donut({ data }: { data: PipelineDonutData }) {
           textAnchor="middle"
           className="fill-slate-500 text-[11px]"
         >
-          Total
+          {t('dashboard.pipeline.total')}
         </text>
         <text
           x={cx}
@@ -121,7 +126,7 @@ function Donut({ data }: { data: PipelineDonutData }) {
           textAnchor="middle"
           className="fill-white text-[18px] font-semibold tabular-nums"
         >
-          {formatCurrencyShort(data.totalValue)}
+          {formatCurrencyShort(data.totalValue, locale)}
         </text>
       </svg>
     </div>
@@ -137,8 +142,11 @@ function arcPath(cx: number, cy: number, r: number, startRad: number, endRad: nu
   return `M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}`
 }
 
-function formatCurrencyShort(v: number): string {
-  if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`
-  if (v >= 1_000) return `$${(v / 1_000).toFixed(1)}k`
-  return `$${v.toFixed(0)}`
+function formatCurrencyShort(v: number, locale: string): string {
+  return new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency: LOCALE_CURRENCY[locale as keyof typeof LOCALE_CURRENCY] ?? 'MXN',
+    notation: 'compact',
+    maximumFractionDigits: 1,
+  }).format(v)
 }

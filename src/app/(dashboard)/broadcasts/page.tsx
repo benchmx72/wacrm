@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { useLanguage } from '@/hooks/use-language';
 import { Broadcast } from '@/types';
 import { Button } from '@/components/ui/button';
 import {
@@ -56,6 +57,7 @@ function RateCell({
 
 export default function BroadcastsPage() {
   const router = useRouter();
+  const { locale, t } = useLanguage();
   const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -74,7 +76,7 @@ export default function BroadcastsPage() {
       if (fetchError) throw fetchError;
       setBroadcasts(data ?? []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load broadcasts');
+      setError(err instanceof Error ? err.message : t('broadcasts.failedLoad'));
     } finally {
       setLoading(false);
     }
@@ -138,7 +140,7 @@ export default function BroadcastsPage() {
       <div className="flex h-64 flex-col items-center justify-center gap-2">
         <p className="text-sm text-red-400">{error}</p>
         <Button variant="outline" onClick={() => window.location.reload()}>
-          Retry
+          {t('common.retry')}
         </Button>
       </div>
     );
@@ -151,7 +153,7 @@ export default function BroadcastsPage() {
       {anySending && (
         <div
           role="progressbar"
-          aria-label="Broadcast in progress"
+          aria-label={t('broadcasts.inProgress')}
           className="broadcast-indeterminate fixed inset-x-0 top-0 z-40 h-0.5 overflow-hidden bg-slate-800"
         >
           <div className="broadcast-indeterminate-bar h-0.5 bg-primary" />
@@ -176,9 +178,9 @@ export default function BroadcastsPage() {
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Broadcasts</h1>
+          <h1 className="text-2xl font-bold text-white">{t('broadcasts.title')}</h1>
           <p className="mt-1 text-sm text-slate-400">
-            Send bulk messages to your contacts using approved templates.
+            {t('broadcasts.description')}
           </p>
         </div>
         <Button
@@ -186,23 +188,23 @@ export default function BroadcastsPage() {
           className="bg-primary text-primary-foreground hover:bg-primary/90"
         >
           <Plus className="h-4 w-4" />
-          New Broadcast
+          {t('broadcasts.newBroadcast')}
         </Button>
       </div>
 
       {broadcasts.length === 0 ? (
         <div className="flex h-64 flex-col items-center justify-center rounded-xl border border-slate-800 bg-slate-900">
           <Radio className="mb-3 h-10 w-10 text-slate-600" />
-          <p className="text-sm font-medium text-white">No broadcasts yet</p>
+          <p className="text-sm font-medium text-white">{t('broadcasts.emptyTitle')}</p>
           <p className="mt-1 text-xs text-slate-400">
-            Create your first broadcast to reach your contacts at scale.
+            {t('broadcasts.emptyHint')}
           </p>
           <Button
             onClick={() => router.push('/broadcasts/new')}
             className="mt-4 bg-primary text-primary-foreground hover:bg-primary/90"
           >
             <Plus className="h-4 w-4" />
-            New Broadcast
+            {t('broadcasts.newBroadcast')}
           </Button>
         </div>
       ) : (
@@ -210,15 +212,15 @@ export default function BroadcastsPage() {
           <Table>
             <TableHeader>
               <TableRow className="border-slate-800 hover:bg-transparent">
-                <TableHead className="text-slate-400">Name</TableHead>
-                <TableHead className="hidden text-slate-400 md:table-cell">Template</TableHead>
+                <TableHead className="text-slate-400">{t('broadcasts.columns.name')}</TableHead>
+                <TableHead className="hidden text-slate-400 md:table-cell">{t('broadcasts.columns.template')}</TableHead>
                 <TableHead className="hidden text-right text-slate-400 sm:table-cell">
-                  Recipients
+                  {t('broadcasts.columns.recipients')}
                 </TableHead>
-                <TableHead className="hidden text-slate-400 lg:table-cell">Delivery</TableHead>
-                <TableHead className="hidden text-slate-400 lg:table-cell">Read</TableHead>
-                <TableHead className="text-slate-400">Status</TableHead>
-                <TableHead className="hidden text-slate-400 sm:table-cell">Date</TableHead>
+                <TableHead className="hidden text-slate-400 lg:table-cell">{t('broadcasts.columns.delivery')}</TableHead>
+                <TableHead className="hidden text-slate-400 lg:table-cell">{t('broadcasts.columns.read')}</TableHead>
+                <TableHead className="text-slate-400">{t('broadcasts.columns.status')}</TableHead>
+                <TableHead className="hidden text-slate-400 sm:table-cell">{t('broadcasts.columns.date')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -237,7 +239,7 @@ export default function BroadcastsPage() {
                       {broadcast.template_name}
                     </TableCell>
                     <TableCell className="hidden text-right text-slate-300 tabular-nums sm:table-cell">
-                      {broadcast.total_recipients}
+                      {broadcast.total_recipients.toLocaleString(locale)}
                     </TableCell>
                     <TableCell className="hidden lg:table-cell">
                       <RateCell
@@ -263,11 +265,11 @@ export default function BroadcastsPage() {
                             <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-yellow-400" />
                           </span>
                         )}
-                        {status.label}
+                        {t(`statuses.${broadcast.status}`)}
                       </span>
                     </TableCell>
                     <TableCell className="hidden text-slate-400 sm:table-cell">
-                      {new Date(broadcast.created_at).toLocaleDateString()}
+                      {new Date(broadcast.created_at).toLocaleDateString(locale)}
                     </TableCell>
                   </TableRow>
                 );

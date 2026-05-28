@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { useLanguage } from "@/hooks/use-language";
 import {
   Dialog,
   DialogContent,
@@ -52,12 +53,6 @@ interface FlowRow {
   updated_at: string;
 }
 
-const STATUS_LABELS: Record<FlowRow["status"], string> = {
-  draft: "Draft",
-  active: "Active",
-  archived: "Archived",
-};
-
 const STATUS_COLORS: Record<FlowRow["status"], string> = {
   draft: "border-slate-700 bg-slate-800 text-slate-300",
   active: "border-emerald-600/40 bg-emerald-500/10 text-emerald-300",
@@ -81,6 +76,7 @@ const TEMPLATE_ICONS = {
 
 export default function FlowsPage() {
   const router = useRouter();
+  const { locale, t } = useLanguage();
   const [flows, setFlows] = useState<FlowRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
@@ -112,7 +108,7 @@ export default function FlowsPage() {
       } catch (err) {
         if (!cancelled) {
           console.error(err);
-          toast.error("Couldn't load flows.");
+          toast.error(t("flows.failedLoad"));
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -143,7 +139,7 @@ export default function FlowsPage() {
       router.push(`/flows/${json.flow.id}`);
     } catch (err) {
       console.error(err);
-      toast.error("Couldn't create flow.");
+      toast.error(t("flows.failedCreate"));
     } finally {
       setCreating(false);
     }
@@ -159,13 +155,13 @@ export default function FlowsPage() {
       });
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));
-        throw new Error(json.error ?? `Clone failed: ${res.status}`);
+        throw new Error(json.error ?? t("flows.failedClone"));
       }
       const json = (await res.json()) as { flow: FlowRow };
       setCreateOpen(false);
       router.push(`/flows/${json.flow.id}`);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Clone failed";
+      const msg = err instanceof Error ? err.message : t("flows.failedClone");
       toast.error(msg);
     } finally {
       setCreating(false);
@@ -174,17 +170,17 @@ export default function FlowsPage() {
 
   async function handleDelete(flow: FlowRow) {
     const yes = window.confirm(
-      `Delete "${flow.name}"? Any active runs will end immediately.`,
+      t("flows.confirmDelete", { name: flow.name }),
     );
     if (!yes) return;
     try {
       const res = await fetch(`/api/flows/${flow.id}`, { method: "DELETE" });
       if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
       setFlows((prev) => prev.filter((f) => f.id !== flow.id));
-      toast.success("Flow deleted.");
+      toast.success(t("flows.deleted"));
     } catch (err) {
       console.error(err);
-      toast.error("Couldn't delete flow.");
+      toast.error(t("flows.failedDelete"));
     }
   }
 
@@ -201,19 +197,18 @@ export default function FlowsPage() {
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-semibold text-white">Flows</h1>
+            <h1 className="text-2xl font-semibold text-white">{t("flows.title")}</h1>
             <span className="inline-flex items-center rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-300">
-              Beta
+              {t("nav.beta")}
             </span>
           </div>
           <p className="mt-1 text-sm text-slate-400">
-            Build branching, button-driven WhatsApp conversations. Useful for
-            menus, FAQs, and triage before a human steps in.
+            {t("flows.description")}
           </p>
         </div>
         <Button onClick={() => setCreateOpen(true)}>
           <Plus className="h-4 w-4" />
-          New flow
+          {t("flows.newFlow")}
         </Button>
       </header>
 
@@ -227,6 +222,7 @@ export default function FlowsPage() {
               flow={flow}
               onEdit={() => router.push(`/flows/${flow.id}`)}
               onDelete={() => handleDelete(flow)}
+              locale={locale}
             />
           ))}
         </div>
@@ -239,37 +235,42 @@ export default function FlowsPage() {
             sm-scoped 384px wins at every real desktop breakpoint. */}
         <DialogContent className="sm:max-w-4xl bg-slate-900 text-slate-100">
           <DialogHeader>
-            <DialogTitle>Create a new flow</DialogTitle>
+            <DialogTitle>{t("flows.createTitle")}</DialogTitle>
             <DialogDescription className="text-slate-400">
-              Start from a template or build from scratch.
+              {t("flows.createDescription")}
             </DialogDescription>
           </DialogHeader>
 
           {templates.length > 0 && (
             <div className="space-y-3">
               <p className="text-xs uppercase tracking-wide text-slate-500">
-                Start from a template
+                {t("flows.templateStart")}
               </p>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {templates.map((t) => {
-                  const Icon = TEMPLATE_ICONS[t.icon] ?? FileText;
+                {templates.map((template) => {
+                  const Icon = TEMPLATE_ICONS[template.icon] ?? FileText;
                   return (
                     <button
-                      key={t.slug}
+                      key={template.slug}
                       type="button"
-                      onClick={() => handleUseTemplate(t.slug)}
+                      onClick={() => handleUseTemplate(template.slug)}
                       disabled={creating}
                       className="flex flex-col gap-2.5 rounded-lg border border-slate-800 bg-slate-950 p-4 text-left transition-colors hover:border-primary/40 hover:bg-slate-800 disabled:opacity-50"
                     >
                       <Icon className="h-5 w-5 text-primary" />
                       <span className="text-sm font-semibold text-white">
-                        {t.name}
+                        {template.name}
                       </span>
                       <span className="text-xs leading-relaxed text-slate-400">
-                        {t.description}
+                        {template.description}
                       </span>
                       <span className="mt-auto border-t border-slate-800 pt-2 text-[11px] text-slate-500">
-                        {t.node_count} {t.node_count === 1 ? "node" : "nodes"}
+                        {t(
+                          template.node_count === 1
+                            ? "flows.node"
+                            : "flows.nodes",
+                          { count: template.node_count.toLocaleString(locale) },
+                        )}
                       </span>
                     </button>
                   );
@@ -280,12 +281,12 @@ export default function FlowsPage() {
 
           <div className="space-y-2 border-t border-slate-800 pt-4">
             <p className="text-xs uppercase tracking-wide text-slate-500">
-              Or start blank
+              {t("flows.blankStart")}
             </p>
             <Input
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              placeholder="e.g. Welcome menu"
+              placeholder={t("flows.blankPlaceholder")}
               className="bg-slate-800"
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleCreate();
@@ -299,11 +300,11 @@ export default function FlowsPage() {
               onClick={() => setCreateOpen(false)}
               disabled={creating}
             >
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button onClick={handleCreate} disabled={!newName.trim() || creating}>
               {creating && <Loader2 className="h-4 w-4 animate-spin" />}
-              Create blank flow
+              {t("flows.createBlank")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -313,13 +314,15 @@ export default function FlowsPage() {
 }
 
 function EmptyState({ onCreate }: { onCreate: () => void }) {
+  const { t } = useLanguage();
+
   return (
     <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-700 bg-slate-900/50 px-6 py-16 text-center">
       <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-800">
         <Workflow className="h-6 w-6 text-slate-500" />
       </div>
       <h2 className="mt-4 text-base font-medium text-white">
-        No flows yet
+        {t("flows.emptyTitle")}
       </h2>
       <p className="mt-1 max-w-md text-sm text-slate-400">
         Build your first conversation — a welcome menu, an order lookup, an FAQ
@@ -328,7 +331,7 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
       </p>
       <Button onClick={onCreate} className="mt-5">
         <Plus className="h-4 w-4" />
-        Create your first flow
+        {t("flows.createFirst")}
       </Button>
     </div>
   );
@@ -338,12 +341,15 @@ function FlowCard({
   flow,
   onEdit,
   onDelete,
+  locale,
 }: {
   flow: FlowRow;
   onEdit: () => void;
   onDelete: () => void;
+  locale: string;
 }) {
-  const triggerSummary = describeTrigger(flow);
+  const { t } = useLanguage();
+  const triggerSummary = describeTrigger(flow, t);
   const StatusIcon =
     flow.status === "active"
       ? PlayCircle
@@ -367,7 +373,7 @@ function FlowCard({
           )}
         >
           <StatusIcon className="h-3 w-3" />
-          {STATUS_LABELS[flow.status]}
+          {t(`statuses.${flow.status}`)}
         </Badge>
       </div>
 
@@ -378,14 +384,16 @@ function FlowCard({
       <div className="mt-4 flex items-center gap-3 text-[11px] text-slate-500">
         <span className="inline-flex items-center gap-1">
           <MessageSquare className="h-3 w-3" />
-          {flow.execution_count} {flow.execution_count === 1 ? "run" : "runs"}
+          {t(flow.execution_count === 1 ? "flows.run" : "flows.runs", {
+            count: flow.execution_count.toLocaleString(locale),
+          })}
         </span>
       </div>
 
       <div className="mt-4 flex items-center justify-end gap-2 border-t border-slate-800 pt-3">
         <Button variant="ghost" size="sm" onClick={onEdit}>
           <Pencil className="h-3.5 w-3.5" />
-          Edit
+          {t("common.edit")}
         </Button>
         <Button
           variant="ghost"
@@ -394,23 +402,26 @@ function FlowCard({
           className="text-red-400 hover:bg-red-500/10 hover:text-red-300"
         >
           <Trash2 className="h-3.5 w-3.5" />
-          Delete
+          {t("common.delete")}
         </Button>
       </div>
     </div>
   );
 }
 
-function describeTrigger(flow: FlowRow): string {
+function describeTrigger(
+  flow: FlowRow,
+  t: ReturnType<typeof useLanguage>["t"],
+): string {
   if (flow.trigger_type === "keyword") {
     const keywords = Array.isArray(flow.trigger_config.keywords)
       ? (flow.trigger_config.keywords as string[])
       : [];
-    if (keywords.length === 0) return "Triggers on keyword (none set)";
-    return `Triggers on: ${keywords.join(", ")}`;
+    if (keywords.length === 0) return t("flows.triggersKeywordNone");
+    return t("flows.triggersOn", { keywords: keywords.join(", ") });
   }
   if (flow.trigger_type === "first_inbound_message") {
-    return "Triggers on a contact's first-ever inbound message";
+    return t("flows.triggersFirstInbound");
   }
-  return "Manual trigger";
+  return t("flows.manualTrigger");
 }

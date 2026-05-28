@@ -9,14 +9,20 @@ import {
   type ReactNode,
 } from "react";
 import { createClient } from "@/lib/supabase/client";
+import type { AppRole } from "@/lib/auth/roles";
+import type { MessagingChannel } from "@/types";
 import type { User } from "@supabase/supabase-js";
 
 interface Profile {
   id: string;
+  account_owner_id?: string | null;
+  invited_by?: string | null;
   full_name: string | null;
   email: string;
   avatar_url: string | null;
-  role: string | null;
+  role: AppRole | string | null;
+  status?: "active" | "invited" | "disabled" | null;
+  messaging_channel?: MessagingChannel | null;
   /**
    * Opted-in beta feature keys for this account. No current feature
    * reads this — Flows was the last user and went to soft-GA in PR
@@ -76,7 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, full_name, email, avatar_url, role, beta_features")
+        .select("id, account_owner_id, invited_by, full_name, email, avatar_url, role, status, beta_features")
         .eq("user_id", userId)
         .maybeSingle();
 
@@ -91,12 +97,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (data) {
+        let messagingChannel: MessagingChannel = "whatsapp";
+        const { data: channelData, error: channelError } = await supabase
+          .from("profiles")
+          .select("messaging_channel")
+          .eq("user_id", userId)
+          .maybeSingle();
+
+        if (!channelError && channelData?.messaging_channel) {
+          messagingChannel = channelData.messaging_channel as MessagingChannel;
+        } else if (channelError?.code !== "42703") {
+          console.warn("[AuthProvider] messaging_channel fetch warning:", {
+            message: channelError?.message,
+            code: channelError?.code,
+          });
+        }
+
         // `beta_features` is `NOT NULL DEFAULT ARRAY[]` in the DB, but
         // narrow defensively in case the column hasn't been migrated yet
         // (older deployments running 011 lazily) — `null` reads as no
         // opt-ins, which is the safe default for any future beta gate.
         setProfile({
           ...data,
+          messaging_channel: messagingChannel,
           beta_features: data.beta_features ?? [],
         });
       }

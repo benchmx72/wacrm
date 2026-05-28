@@ -5,7 +5,11 @@ import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
+import { useLanguage } from "@/hooks/use-language";
 import { useTotalUnread } from "@/hooks/use-total-unread";
+import type { TranslationKey } from "@/lib/i18n";
+import type { AppPermission } from "@/lib/auth/roles";
+import { hasPermission } from "@/lib/auth/roles";
 import {
   LayoutDashboard,
   MessageSquare,
@@ -14,6 +18,8 @@ import {
   Radio,
   Zap,
   Workflow,
+  Bot,
+  CalendarDays,
   Settings,
   LogOut,
   User,
@@ -34,8 +40,9 @@ import {
 
 interface NavItem {
   href: string;
-  label: string;
+  labelKey: TranslationKey;
   icon: typeof LayoutDashboard;
+  permission: AppPermission;
   /**
    * When true, the nav row renders a small "Beta" chip after the label.
    * Purely informational — doesn't affect routing or access.
@@ -44,17 +51,19 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/inbox", label: "Inbox", icon: MessageSquare },
-  { href: "/contacts", label: "Contacts", icon: Users },
-  { href: "/pipelines", label: "Pipelines", icon: GitBranch },
-  { href: "/broadcasts", label: "Broadcasts", icon: Radio },
-  { href: "/automations", label: "Automations", icon: Zap },
-  { href: "/flows", label: "Flows", icon: Workflow, beta: true },
+  { href: "/dashboard", labelKey: "nav.dashboard", icon: LayoutDashboard, permission: "view_dashboard" },
+  { href: "/inbox", labelKey: "nav.inbox", icon: MessageSquare, permission: "view_inbox" },
+  { href: "/contacts", labelKey: "nav.contacts", icon: Users, permission: "view_contacts" },
+  { href: "/pipelines", labelKey: "nav.pipelines", icon: GitBranch, permission: "view_pipelines" },
+  { href: "/appointments", labelKey: "nav.appointments", icon: CalendarDays, permission: "view_appointments" },
+  { href: "/broadcasts", labelKey: "nav.broadcasts", icon: Radio, permission: "view_broadcasts" },
+  { href: "/automations", labelKey: "nav.automations", icon: Zap, permission: "view_automations" },
+  { href: "/flows", labelKey: "nav.flows", icon: Workflow, permission: "view_flows", beta: true },
+  { href: "/ai-playground", labelKey: "nav.aiPlayground", icon: Bot, permission: "view_ai_playground", beta: true },
 ];
 
-const bottomNavItems = [
-  { href: "/settings", label: "Settings", icon: Settings },
+const bottomNavItems: NavItem[] = [
+  { href: "/settings", labelKey: "nav.settings", icon: Settings, permission: "view_settings" },
 ];
 
 interface SidebarProps {
@@ -66,6 +75,7 @@ interface SidebarProps {
 export function Sidebar({ open = false, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { profile, signOut } = useAuth();
+  const { t } = useLanguage();
   const totalUnread = useTotalUnread();
 
   // Close the drawer when route changes — users opened it to navigate,
@@ -99,7 +109,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
           part of the main flex row there. */}
       <button
         type="button"
-        aria-label="Close menu"
+        aria-label={t("common.closeMenu")}
         onClick={onClose}
         className={cn(
           "fixed inset-0 z-30 bg-slate-950/70 backdrop-blur-sm transition-opacity lg:hidden",
@@ -128,13 +138,13 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
               <MessageSquare className="h-4 w-4" />
             </div>
             <span className="text-sm font-semibold text-white">
-              CRM Template for WhatsApp
+              SophIA CRM
             </span>
           </Link>
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close menu"
+            aria-label={t("common.closeMenu")}
             className="flex h-9 w-9 items-center justify-center rounded-md text-slate-400 hover:bg-slate-800 hover:text-white lg:hidden"
           >
             <X className="h-5 w-5" />
@@ -144,7 +154,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         {/* Main navigation */}
         <nav className="flex-1 overflow-y-auto px-3 py-4">
           <ul className="flex flex-col gap-1">
-            {navItems.map((item) => {
+            {navItems.filter((item) => hasPermission(profile?.role, item.permission)).map((item) => {
               const isActive =
                 pathname === item.href ||
                 (item.href !== "/dashboard" && pathname.startsWith(item.href));
@@ -165,13 +175,13 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                     )}
                   >
                     <item.icon className="h-4 w-4" />
-                    <span className="flex-1">{item.label}</span>
+                    <span className="flex-1">{t(item.labelKey)}</span>
                     {item.beta && (
                       <span
                         aria-label="Beta feature"
                         className="rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-amber-300"
                       >
-                        Beta
+                        {t("nav.beta")}
                       </span>
                     )}
                     {showUnreadDot && (
@@ -192,7 +202,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
           <div className="my-4 border-t border-slate-800" />
 
           <ul className="flex flex-col gap-1">
-            {bottomNavItems.map((item) => {
+            {bottomNavItems.filter((item) => hasPermission(profile?.role, item.permission)).map((item) => {
               const isActive = pathname.startsWith(item.href);
               return (
                 <li key={item.href}>
@@ -206,7 +216,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                     )}
                   >
                     <item.icon className="h-4 w-4" />
-                    {item.label}
+                    {t(item.labelKey)}
                   </Link>
                 </li>
               );
@@ -222,7 +232,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                 {profile?.avatar_url ? (
                   <AvatarImage
                     src={profile.avatar_url}
-                    alt={profile.full_name ?? "Avatar"}
+                    alt={profile.full_name ?? t("common.avatar")}
                   />
                 ) : null}
                 <AvatarFallback className="bg-primary/10 text-sm font-medium text-primary">
@@ -233,7 +243,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
               </Avatar>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-white">
-                  {profile?.full_name ?? "User"}
+                  {profile?.full_name ?? t("common.user")}
                 </p>
                 <p className="truncate text-xs text-slate-400">
                   {profile?.email ?? ""}
@@ -256,19 +266,23 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                 }
               >
                 <User className="size-4" />
-                Profile
+                {t("nav.profile")}
               </DropdownMenuItem>
               <DropdownMenuItem
                 render={
                   <Link
-                    href="/settings?tab=whatsapp"
+                    href={
+                      hasPermission(profile?.role, "manage_whatsapp")
+                        ? "/settings?tab=whatsapp"
+                        : "/settings?tab=profile"
+                    }
                     onClick={onClose}
                     className="text-slate-200 focus:bg-slate-800 focus:text-white"
                   />
                 }
               >
                 <Settings className="size-4" />
-                Settings
+                {t("nav.settings")}
               </DropdownMenuItem>
               <DropdownMenuSeparator className="bg-slate-800" />
               <DropdownMenuItem
@@ -276,7 +290,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                 className="text-slate-200 focus:bg-slate-800 focus:text-white"
               >
                 <LogOut className="size-4" />
-                Sign out
+                {t("nav.signOut")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

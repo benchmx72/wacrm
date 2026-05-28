@@ -18,6 +18,7 @@ import type { Deal, PipelineStage } from "@/types";
 import { DealCard } from "./deal-card";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
+import { useLanguage } from "@/hooks/use-language";
 
 interface PipelineBoardProps {
   stages: PipelineStage[];
@@ -25,6 +26,7 @@ interface PipelineBoardProps {
   onDealMoved: (dealId: string, newStageId: string) => void;
   onAddDeal: (stageId: string) => void;
   onEditDeal: (deal: Deal) => void;
+  canManage?: boolean;
 }
 
 function formatCurrency(value: number) {
@@ -42,7 +44,9 @@ export function PipelineBoard({
   onDealMoved,
   onAddDeal,
   onEditDeal,
+  canManage = true,
 }: PipelineBoardProps) {
+  const { t } = useLanguage();
   const [activeDealId, setActiveDealId] = useState<string | null>(null);
 
   const sortedStages = useMemo(
@@ -73,11 +77,13 @@ export function PipelineBoard({
     : null;
 
   function handleDragStart(event: DragStartEvent) {
+    if (!canManage) return;
     setActiveDealId(String(event.active.id));
   }
 
   function handleDragEnd(event: DragEndEvent) {
     setActiveDealId(null);
+    if (!canManage) return;
     const { active, over } = event;
     if (!over) return;
     const dealId = String(active.id);
@@ -121,6 +127,8 @@ export function PipelineBoard({
               totalValue={totalValue}
               onAddDeal={onAddDeal}
               onEditDeal={onEditDeal}
+              canManage={canManage}
+              translateStageName={(name) => translateStageName(name, t)}
             />
           );
         })}
@@ -141,6 +149,7 @@ export function PipelineBoard({
               }
               onEdit={() => {}}
               isOverlay
+              canEdit={canManage}
             />
           </div>
         ) : null}
@@ -164,19 +173,42 @@ export function PipelineBoard({
   );
 }
 
+function translateStageName(
+  name: string,
+  t: ReturnType<typeof useLanguage>["t"],
+) {
+  const normalized = name.toLowerCase();
+  if (normalized === "new lead") return t("pipelinesPage.stages.newLead");
+  if (normalized === "qualified") return t("pipelinesPage.stages.qualified");
+  if (normalized === "proposal sent") {
+    return t("pipelinesPage.stages.proposalSent");
+  }
+  if (normalized === "negotiation") {
+    return t("pipelinesPage.stages.negotiation");
+  }
+  if (normalized === "won") return t("pipelinesPage.stages.won");
+  if (normalized === "lost") return t("pipelinesPage.stages.lost");
+  return name;
+}
+
 function StageColumn({
   stage,
   deals,
   totalValue,
   onAddDeal,
   onEditDeal,
+  canManage,
+  translateStageName,
 }: {
   stage: PipelineStage;
   deals: Deal[];
   totalValue: number;
   onAddDeal: (stageId: string) => void;
   onEditDeal: (deal: Deal) => void;
+  canManage: boolean;
+  translateStageName: (name: string) => string;
 }) {
+  const { t } = useLanguage();
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
 
   return (
@@ -194,7 +226,7 @@ function StageColumn({
       />
       <div className="flex items-center justify-between pt-3">
         <h3 className="truncate text-sm font-semibold text-white">
-          {stage.name}
+          {translateStageName(stage.name)}
         </h3>
         <span className="shrink-0 rounded-full bg-slate-800 px-2 py-0.5 text-[11px] font-medium text-slate-300">
           {deals.length}
@@ -212,7 +244,7 @@ function StageColumn({
       >
         {deals.length === 0 ? (
           <div className="flex flex-1 items-center justify-center rounded-lg border-2 border-dashed border-slate-700 py-10 text-xs text-slate-500">
-            Drop a deal here
+            {t("pipelinesPage.board.dropDeal")}
           </div>
         ) : (
           deals.map((deal) => (
@@ -221,20 +253,23 @@ function StageColumn({
               deal={deal}
               stage={stage}
               onEdit={onEditDeal}
+              canManage={canManage}
             />
           ))
         )}
       </div>
 
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => onAddDeal(stage.id)}
-        className="mt-3 w-full justify-start border border-dashed border-slate-700 bg-transparent text-slate-400 hover:border-slate-600 hover:bg-slate-800 hover:text-white"
-      >
-        <Plus className="mr-1 h-3 w-3" />
-        Add Deal
-      </Button>
+      {canManage && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onAddDeal(stage.id)}
+          className="mt-3 w-full justify-start border border-dashed border-slate-700 bg-transparent text-slate-400 hover:border-slate-600 hover:bg-slate-800 hover:text-white"
+        >
+          <Plus className="mr-1 h-3 w-3" />
+          {t("pipelinesPage.addDeal")}
+        </Button>
+      )}
     </div>
   );
 }
@@ -243,23 +278,26 @@ function DraggableDealCard({
   deal,
   stage,
   onEdit,
+  canManage,
 }: {
   deal: Deal;
   stage: PipelineStage;
   onEdit: (deal: Deal) => void;
+  canManage: boolean;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: deal.id,
+    disabled: !canManage,
   });
 
   return (
     <div
       ref={setNodeRef}
-      {...listeners}
-      {...attributes}
+      {...(canManage ? listeners : {})}
+      {...(canManage ? attributes : {})}
       style={{ opacity: isDragging ? 0.3 : 1, touchAction: "none" }}
     >
-      <DealCard deal={deal} stage={stage} onEdit={onEdit} />
+      <DealCard deal={deal} stage={stage} onEdit={onEdit} canEdit={canManage} />
     </div>
   );
 }

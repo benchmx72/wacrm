@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { getClientAccountOwnerId } from '@/lib/auth/account';
 import { toast } from 'sonner';
-import type { Contact, Tag, ContactTag, ContactNote, CustomField, ContactCustomValue, Deal } from '@/types';
+import type { Appointment, Contact, Tag, ContactTag, ContactNote, CustomField, ContactCustomValue, Deal } from '@/types';
 import {
   Sheet,
   SheetContent,
@@ -31,6 +32,7 @@ import {
   Save,
   X,
   DollarSign,
+  CalendarPlus,
 } from 'lucide-react';
 
 interface ContactDetailViewProps {
@@ -79,6 +81,10 @@ export function ContactDetailView({
   // Deals tab
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loadingDeals, setLoadingDeals] = useState(false);
+
+  // Appointments tab
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [loadingAppointments, setLoadingAppointments] = useState(false);
 
   const fetchContact = useCallback(async () => {
     if (!contactId) return;
@@ -163,6 +169,18 @@ export function ContactDetailView({
     setLoadingDeals(false);
   }, [contactId, supabase]);
 
+  const fetchAppointments = useCallback(async () => {
+    if (!contactId) return;
+    setLoadingAppointments(true);
+    const { data } = await supabase
+      .from('appointments')
+      .select('*')
+      .eq('contact_id', contactId)
+      .order('created_at', { ascending: false });
+    setAppointments((data ?? []) as Appointment[]);
+    setLoadingAppointments(false);
+  }, [contactId, supabase]);
+
   useEffect(() => {
     if (open && contactId) {
       fetchContact();
@@ -170,8 +188,9 @@ export function ContactDetailView({
       fetchNotes();
       fetchCustomFields();
       fetchDeals();
+      fetchAppointments();
     }
-  }, [open, contactId, fetchContact, fetchTags, fetchNotes, fetchCustomFields, fetchDeals]);
+  }, [open, contactId, fetchContact, fetchTags, fetchNotes, fetchCustomFields, fetchDeals, fetchAppointments]);
 
   async function copyPhone() {
     if (!contact) return;
@@ -249,10 +268,11 @@ export function ContactDetailView({
       setSavingNote(false);
       return;
     }
+    const accountOwnerId = await getClientAccountOwnerId(supabase, user.id);
 
     const { error } = await supabase.from('contact_notes').insert({
       contact_id: contactId,
-      user_id: user.id,
+      user_id: accountOwnerId,
       note_text: newNote.trim(),
     });
 
@@ -412,6 +432,12 @@ export function ContactDetailView({
                   className="data-active:bg-slate-800 data-active:text-primary text-slate-400"
                 >
                   Deals
+                </TabsTrigger>
+                <TabsTrigger
+                  value="appointments"
+                  className="data-active:bg-slate-800 data-active:text-primary text-slate-400"
+                >
+                  Citas
                 </TabsTrigger>
               </TabsList>
 
@@ -671,6 +697,49 @@ export function ContactDetailView({
                             </span>
                           )}
                         </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+
+              {/* Appointments Tab */}
+              <TabsContent value="appointments" className="flex-1 overflow-y-auto px-4 py-3">
+                {loadingAppointments ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="size-5 animate-spin text-primary" />
+                  </div>
+                ) : appointments.length === 0 ? (
+                  <p className="text-xs text-slate-500">Sin citas registradas</p>
+                ) : (
+                  <div className="space-y-2">
+                    {appointments.map((appointment) => (
+                      <div
+                        key={appointment.id}
+                        className="rounded-lg border border-slate-700 bg-slate-800/50 p-3"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="flex items-center gap-2 text-sm font-medium text-white">
+                            <CalendarPlus className="size-4 text-primary" />
+                            {appointment.title}
+                          </p>
+                          <span className="shrink-0 rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                            {appointment.status}
+                          </span>
+                        </div>
+                        <p className="mt-2 text-xs text-slate-400">
+                          {appointment.preferred_time ?? 'Por confirmar'}
+                        </p>
+                        {appointment.notes && (
+                          <p className="mt-2 whitespace-pre-wrap text-xs text-slate-500">
+                            {appointment.notes}
+                          </p>
+                        )}
+                        {appointment.calendar_event_id && (
+                          <p className="mt-2 text-[10px] text-slate-500">
+                            Google Calendar: {appointment.calendar_event_id}
+                          </p>
+                        )}
                       </div>
                     ))}
                   </div>

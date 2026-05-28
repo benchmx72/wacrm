@@ -8,6 +8,7 @@ import {
   rateLimitResponse,
   RATE_LIMITS,
 } from '@/lib/rate-limit';
+import { getServerAccountOwnerId } from '@/lib/auth/account';
 
 /**
  * POST /api/whatsapp/react
@@ -30,6 +31,7 @@ export async function POST(request: Request) {
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    const accountOwnerId = await getServerAccountOwnerId(supabase, user.id);
 
     const limit = checkRateLimit(`react:${user.id}`, RATE_LIMITS.react);
     if (!limit.success) {
@@ -73,7 +75,7 @@ export async function POST(request: Request) {
       .from('conversations')
       .select('id, user_id, contact:contacts(phone)')
       .eq('id', targetMessage.conversation_id)
-      .eq('user_id', user.id)
+      .eq('user_id', accountOwnerId)
       .maybeSingle();
 
     if (convError || !conversation) {
@@ -97,7 +99,7 @@ export async function POST(request: Request) {
     const { data: config, error: configError } = await supabase
       .from('whatsapp_config')
       .select('phone_number_id, access_token')
-      .eq('user_id', user.id)
+      .eq('user_id', accountOwnerId)
       .single();
 
     if (configError || !config) {

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { verifyPhoneNumber } from '@/lib/whatsapp/meta-api'
 import { encrypt, decrypt } from '@/lib/whatsapp/encryption'
+import { getServerAccountOwnerId } from '@/lib/auth/account'
 
 /**
  * GET /api/whatsapp/config
@@ -28,11 +29,12 @@ export async function GET() {
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    const accountOwnerId = await getServerAccountOwnerId(supabase, user.id)
 
     const { data: config, error: configError } = await supabase
       .from('whatsapp_config')
       .select('phone_number_id, access_token, status')
-      .eq('user_id', user.id)
+      .eq('user_id', accountOwnerId)
       .maybeSingle()
 
     if (configError) {
@@ -119,6 +121,7 @@ export async function POST(request: Request) {
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    const accountOwnerId = await getServerAccountOwnerId(supabase, user.id)
 
     const body = await request.json()
     const { phone_number_id, waba_id, access_token, verify_token } = body
@@ -168,7 +171,7 @@ export async function POST(request: Request) {
     const { data: existing } = await supabase
       .from('whatsapp_config')
       .select('id')
-      .eq('user_id', user.id)
+      .eq('user_id', accountOwnerId)
       .maybeSingle()
 
     if (existing) {
@@ -183,7 +186,7 @@ export async function POST(request: Request) {
           connected_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
-        .eq('user_id', user.id)
+        .eq('user_id', accountOwnerId)
 
       if (updateError) {
         console.error('Error updating whatsapp_config:', updateError)
@@ -196,7 +199,7 @@ export async function POST(request: Request) {
       const { error: insertError } = await supabase
         .from('whatsapp_config')
         .insert({
-          user_id: user.id,
+          user_id: accountOwnerId,
           phone_number_id,
           waba_id: waba_id || null,
           access_token: encryptedAccessToken,
@@ -240,11 +243,12 @@ export async function DELETE() {
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    const accountOwnerId = await getServerAccountOwnerId(supabase, user.id)
 
     const { error: deleteError } = await supabase
       .from('whatsapp_config')
       .delete()
-      .eq('user_id', user.id)
+      .eq('user_id', accountOwnerId)
 
     if (deleteError) {
       console.error('Error deleting whatsapp_config:', deleteError)

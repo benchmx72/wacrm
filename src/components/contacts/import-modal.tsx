@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { getClientAccountOwnerId } from '@/lib/auth/account';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -127,6 +128,7 @@ export function ImportModal({ open, onOpenChange, onImported }: ImportModalProps
       } = await supabase.auth.getSession();
       const user = session?.user;
       if (!user) throw new Error('Not authenticated');
+      const accountOwnerId = await getClientAccountOwnerId(supabase, user.id);
 
       let imported = 0;
       let failed = 0;
@@ -136,7 +138,7 @@ export function ImportModal({ open, onOpenChange, onImported }: ImportModalProps
       for (let i = 0; i < parsedRows.length; i += chunkSize) {
         const chunk = parsedRows.slice(i, i + chunkSize);
         const rows = chunk.map((row) => ({
-          user_id: user.id,
+          user_id: accountOwnerId,
           phone: row.phone,
           name: row.name || null,
           email: row.email || null,
