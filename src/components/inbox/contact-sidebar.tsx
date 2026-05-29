@@ -38,6 +38,10 @@ export function ContactSidebar({
   const [notes, setNotes] = useState<ContactNote[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [tags, setTags] = useState<(Tag & { contact_tag_id: string })[]>([]);
+  const [leadFields, setLeadFields] = useState<{
+    realPhone?: string;
+    intent?: string;
+  }>({});
   const [newNote, setNewNote] = useState("");
   const [addingNote, setAddingNote] = useState(false);
   const [proposingAppointment, setProposingAppointment] = useState(false);
@@ -50,8 +54,8 @@ export function ContactSidebar({
 
     const supabase = createClient();
 
-    // Fetch deals, appointments, notes, and tags in parallel
-    const [dealsRes, appointmentsRes, notesRes, tagsRes] = await Promise.all([
+    // Fetch deals, appointments, notes, tags, and captured lead fields in parallel
+    const [dealsRes, appointmentsRes, notesRes, tagsRes, fieldsRes] = await Promise.all([
       supabase
         .from("deals")
         .select("*, stage:pipeline_stages(*)")
@@ -71,6 +75,10 @@ export function ContactSidebar({
         .from("contact_tags")
         .select("id, tag_id, tags(*)")
         .eq("contact_id", contact.id),
+      supabase
+        .from("contact_custom_values")
+        .select("value, custom_fields(field_name)")
+        .eq("contact_id", contact.id),
     ]);
 
     if (dealsRes.data) setDeals(dealsRes.data);
@@ -84,6 +92,23 @@ export function ContactSidebar({
           contact_tag_id: ct.id as string,
         }));
       setTags(mapped);
+    }
+    if (fieldsRes.data) {
+      const captured: { realPhone?: string; intent?: string } = {};
+      for (const row of fieldsRes.data as Array<{
+        value?: string | null;
+        custom_fields?: { field_name?: string | null } | null;
+      }>) {
+        if (row.custom_fields?.field_name === "telefono_real") {
+          captured.realPhone = row.value ?? "";
+        }
+        if (row.custom_fields?.field_name === "intencion_lead") {
+          captured.intent = row.value ?? "";
+        }
+      }
+      setLeadFields(captured);
+    } else {
+      setLeadFields({});
     }
   }, [contact]);
 
@@ -188,6 +213,7 @@ export function ContactSidebar({
 
   const displayName = contact.name || contact.phone;
   const initials = displayName.charAt(0).toUpperCase();
+  const isTelegramContact = contact.phone.startsWith("tg:");
   const statusLabels: Record<Appointment["status"], string> = {
     proposed: "Propuesta",
     confirmed: "Confirmada",
@@ -235,10 +261,34 @@ export function ContactSidebar({
               )}
             </button>
 
+            {isTelegramContact && leadFields.realPhone && (
+              <div className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-300">
+                <Phone className="h-4 w-4 text-primary" />
+                <div className="min-w-0 flex-1 text-left">
+                  <p className="truncate">{leadFields.realPhone}</p>
+                  <p className="text-[10px] uppercase tracking-wide text-slate-600">
+                    Telefono real
+                  </p>
+                </div>
+              </div>
+            )}
+
             {contact.email && (
               <div className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-300">
                 <Mail className="h-4 w-4 text-slate-500" />
                 <span className="truncate">{contact.email}</span>
+              </div>
+            )}
+
+            {leadFields.intent && (
+              <div className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-300">
+                <ClipboardCheck className="h-4 w-4 text-slate-500" />
+                <div className="min-w-0 flex-1 text-left">
+                  <p className="capitalize">{leadFields.intent}</p>
+                  <p className="text-[10px] uppercase tracking-wide text-slate-600">
+                    Intencion
+                  </p>
+                </div>
               </div>
             )}
           </div>

@@ -79,6 +79,7 @@ export default function ContactsPage() {
 
   // All tags for display
   const [tagsMap, setTagsMap] = useState<Record<string, Tag>>({});
+  const [realPhonesByContact, setRealPhonesByContact] = useState<Record<string, string>>({});
 
   const fetchTags = useCallback(async () => {
     const { data } = await supabase.from('tags').select('*');
@@ -118,22 +119,49 @@ export default function ContactsPage() {
 
     if (!data || data.length === 0) {
       setContacts([]);
+      setRealPhonesByContact({});
       setLoading(false);
       return;
     }
 
     // Fetch tags for these contacts
     const contactIds = data.map((c) => c.id);
-    const { data: contactTags } = await supabase
-      .from('contact_tags')
-      .select('contact_id, tag_id')
-      .in('contact_id', contactIds);
+    const [contactTagsRes, fieldsRes] = await Promise.all([
+      supabase
+        .from('contact_tags')
+        .select('contact_id, tag_id')
+        .in('contact_id', contactIds),
+      supabase
+        .from('custom_fields')
+        .select('id, field_name')
+        .in('field_name', ['telefono_real', 'intencion_lead']),
+    ]);
 
     const tagsByContact: Record<string, string[]> = {};
-    contactTags?.forEach((ct) => {
+    contactTagsRes.data?.forEach((ct) => {
       if (!tagsByContact[ct.contact_id]) tagsByContact[ct.contact_id] = [];
       tagsByContact[ct.contact_id].push(ct.tag_id);
     });
+
+    const realPhoneFieldId = fieldsRes.data?.find(
+      (field) => field.field_name === 'telefono_real',
+    )?.id;
+
+    if (realPhoneFieldId) {
+      const { data: realPhoneValues } = await supabase
+        .from('contact_custom_values')
+        .select('contact_id, value')
+        .eq('custom_field_id', realPhoneFieldId)
+        .in('contact_id', contactIds);
+
+      const realPhoneMap: Record<string, string> = {};
+      realPhoneValues?.forEach((row) => {
+        if (row.value) realPhoneMap[row.contact_id] = row.value;
+      });
+      setRealPhonesByContact(realPhoneMap);
+    } else {
+      setRealPhonesByContact({});
+    }
 
     const enriched: ContactWithTags[] = data.map((c) => ({
       ...c,
@@ -322,7 +350,16 @@ export default function ContactsPage() {
                     {contact.name || <span className="text-slate-500 italic">{t('contacts.unnamed')}</span>}
                   </TableCell>
                   <TableCell className="text-slate-300 font-mono text-xs">
-                    {contact.phone}
+                    {realPhonesByContact[contact.id] ? (
+                      <div className="space-y-0.5">
+                        <p>{realPhonesByContact[contact.id]}</p>
+                        <p className="text-[10px] font-normal text-slate-600">
+                          Telegram: {contact.phone}
+                        </p>
+                      </div>
+                    ) : (
+                      contact.phone
+                    )}
                   </TableCell>
                   <TableCell className="text-slate-400 hidden md:table-cell text-sm">
                     {contact.email || <span className="text-slate-600">-</span>}
