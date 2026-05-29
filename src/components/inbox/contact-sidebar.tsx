@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import type { ReactNode } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { getClientAccountOwnerId } from "@/lib/auth/account";
-import { cn } from "@/lib/utils";
 import type { Appointment, Contact, Deal, ContactNote, Tag } from "@/types";
 import {
   Phone,
@@ -14,11 +14,11 @@ import {
   CheckCircle2,
   CircleSlash,
   ClipboardCheck,
-  User,
   Tag as TagIcon,
   DollarSign,
   StickyNote,
   Plus,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -27,6 +27,43 @@ import { format } from "date-fns";
 interface ContactSidebarProps {
   contact: Contact | null;
   canUseDemoTools?: boolean;
+}
+
+interface SidebarSectionProps {
+  title: string;
+  icon: typeof TagIcon;
+  count?: number;
+  defaultOpen?: boolean;
+  children: ReactNode;
+}
+
+function SidebarSection({
+  title,
+  icon: Icon,
+  count,
+  defaultOpen = true,
+  children,
+}: SidebarSectionProps) {
+  return (
+    <details
+      open={defaultOpen}
+      className="group border-t border-slate-800 pt-4 first:border-t-0 first:pt-0"
+    >
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-1 text-xs font-medium uppercase tracking-wider text-slate-500 hover:text-slate-300">
+        <span className="flex items-center gap-2">
+          <Icon className="h-3 w-3" />
+          {title}
+          {typeof count === "number" && count > 0 ? (
+            <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] text-primary">
+              {count}
+            </span>
+          ) : null}
+        </span>
+        <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
+      </summary>
+      <div className="mt-2">{children}</div>
+    </details>
+  );
 }
 
 export function ContactSidebar({
@@ -205,7 +242,7 @@ export function ContactSidebar({
 
   if (!contact) {
     return (
-      <div className="flex h-full w-70 items-center justify-center border-l border-slate-800 bg-slate-900">
+      <div className="flex h-full min-h-0 w-70 items-center justify-center border-l border-slate-800 bg-slate-900">
         <p className="text-sm text-slate-500">Select a conversation</p>
       </div>
     );
@@ -222,9 +259,9 @@ export function ContactSidebar({
   };
 
   return (
-    <div className="flex h-full w-70 flex-col border-l border-slate-800 bg-slate-900">
-      <ScrollArea className="flex-1">
-        <div className="p-4">
+    <div className="flex h-full min-h-0 w-70 flex-col border-l border-slate-800 bg-slate-900">
+      <ScrollArea className="min-h-0 flex-1">
+        <div className="space-y-4 p-4">
           {/* Contact Info */}
           <div className="flex flex-col items-center text-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-slate-700 text-lg font-semibold text-white">
@@ -313,12 +350,7 @@ export function ContactSidebar({
             </>
           )}
 
-          {/* Tags */}
-          <div>
-            <div className="flex items-center gap-2 px-1 text-xs font-medium uppercase tracking-wider text-slate-500">
-              <TagIcon className="h-3 w-3" />
-              Tags
-            </div>
+          <SidebarSection title="Tags" icon={TagIcon} count={tags.length}>
             <div className="mt-2 flex flex-wrap gap-1">
               {tags.length === 0 ? (
                 <p className="px-1 text-xs text-slate-600">No tags</p>
@@ -337,18 +369,13 @@ export function ContactSidebar({
                 ))
               )}
             </div>
-          </div>
+          </SidebarSection>
 
           {/* Divider */}
           <div className="my-4 border-t border-slate-800" />
 
-          {/* Active Deals */}
-          <div>
-            <div className="flex items-center gap-2 px-1 text-xs font-medium uppercase tracking-wider text-slate-500">
-              <DollarSign className="h-3 w-3" />
-              Active Deals
-            </div>
-            <div className="mt-2 space-y-2">
+          <SidebarSection title="Negocios activos" icon={DollarSign} count={deals.length}>
+            <div className="max-h-48 space-y-2 overflow-y-auto pr-1">
               {deals.length === 0 ? (
                 <p className="px-1 text-xs text-slate-600">No deals</p>
               ) : (
@@ -381,108 +408,104 @@ export function ContactSidebar({
                 ))
               )}
             </div>
-          </div>
+          </SidebarSection>
 
           {/* Divider */}
-          <div className="my-4 border-t border-slate-800" />
+          <div className="hidden" />
 
-          {/* Appointments */}
-          <div>
-            <div className="flex items-center gap-2 px-1 text-xs font-medium uppercase tracking-wider text-slate-500">
-              <CalendarPlus className="h-3 w-3" />
-              Citas
-            </div>
-            <div className="mt-2 space-y-2">
+          <SidebarSection title="Citas" icon={CalendarPlus} count={appointments.length}>
+            <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
               {appointments.length === 0 ? (
                 <p className="px-1 text-xs text-slate-600">Sin citas</p>
               ) : (
-                appointments.map((appointment) => (
-                  <div
+                appointments.map((appointment, index) => (
+                  <details
+                    open={index === 0}
                     key={appointment.id}
-                    className="rounded-lg bg-slate-800 px-3 py-2"
+                    className="group rounded-lg bg-slate-800 px-3 py-2"
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm font-medium text-white">
+                    <summary className="flex cursor-pointer list-none items-start justify-between gap-2">
+                      <p className="text-xs font-medium text-white">
                         {appointment.title}
                       </p>
-                      <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-primary">
-                        {statusLabels[appointment.status]}
+                      <span className="flex shrink-0 items-center gap-1">
+                        <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                          {statusLabels[appointment.status]}
+                        </span>
+                        <ChevronDown className="h-3 w-3 text-slate-500 transition-transform group-open:rotate-180" />
                       </span>
-                    </div>
-                    <p className="mt-1 text-xs text-slate-400">
-                      {appointment.preferred_time ?? "Por confirmar"}
-                    </p>
-                    {appointment.notes && (
-                      <p className="mt-1 line-clamp-2 text-xs text-slate-500">
-                        {appointment.notes}
+                    </summary>
+                    <div className="mt-2">
+                      <p className="text-xs text-slate-400">
+                        {appointment.preferred_time ?? "Por confirmar"}
                       </p>
-                    )}
-                    <div className="mt-2 grid grid-cols-3 gap-1">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="xs"
-                        disabled={
-                          updatingAppointmentId === appointment.id ||
-                          appointment.status === "confirmed"
-                        }
-                        onClick={() =>
-                          updateAppointmentStatus(appointment.id, "confirmed")
-                        }
-                        className="h-7 px-1 text-[10px] text-primary hover:bg-primary/10 hover:text-primary"
-                      >
-                        <CheckCircle2 className="h-3 w-3" />
-                        Confirmar
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="xs"
-                        disabled={
-                          updatingAppointmentId === appointment.id ||
-                          appointment.status === "completed"
-                        }
-                        onClick={() =>
-                          updateAppointmentStatus(appointment.id, "completed")
-                        }
-                        className="h-7 px-1 text-[10px] text-slate-300 hover:bg-slate-700 hover:text-white"
-                      >
-                        <ClipboardCheck className="h-3 w-3" />
-                        Completar
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="xs"
-                        disabled={
-                          updatingAppointmentId === appointment.id ||
-                          appointment.status === "cancelled"
-                        }
-                        onClick={() =>
-                          updateAppointmentStatus(appointment.id, "cancelled")
-                        }
-                        className="h-7 px-1 text-[10px] text-red-400 hover:bg-red-500/10 hover:text-red-300"
-                      >
-                        <CircleSlash className="h-3 w-3" />
-                        Cancelar
-                      </Button>
+                      {appointment.notes && (
+                        <p className="mt-1 whitespace-pre-wrap text-xs text-slate-500">
+                          {appointment.notes}
+                        </p>
+                      )}
+                      <div className="mt-2 grid grid-cols-3 gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="xs"
+                          disabled={
+                            updatingAppointmentId === appointment.id ||
+                            appointment.status === "confirmed"
+                          }
+                          onClick={() =>
+                            updateAppointmentStatus(appointment.id, "confirmed")
+                          }
+                          className="h-7 px-1 text-[10px] text-primary hover:bg-primary/10 hover:text-primary"
+                        >
+                          <CheckCircle2 className="h-3 w-3" />
+                          Confirmar
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="xs"
+                          disabled={
+                            updatingAppointmentId === appointment.id ||
+                            appointment.status === "completed"
+                          }
+                          onClick={() =>
+                            updateAppointmentStatus(appointment.id, "completed")
+                          }
+                          className="h-7 px-1 text-[10px] text-slate-300 hover:bg-slate-700 hover:text-white"
+                        >
+                          <ClipboardCheck className="h-3 w-3" />
+                          Completar
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="xs"
+                          disabled={
+                            updatingAppointmentId === appointment.id ||
+                            appointment.status === "cancelled"
+                          }
+                          onClick={() =>
+                            updateAppointmentStatus(appointment.id, "cancelled")
+                          }
+                          className="h-7 px-1 text-[10px] text-red-400 hover:bg-red-500/10 hover:text-red-300"
+                        >
+                          <CircleSlash className="h-3 w-3" />
+                          Cancelar
+                        </Button>
+                      </div>
                     </div>
-                  </div>
+                  </details>
                 ))
               )}
             </div>
-          </div>
+          </SidebarSection>
 
           {/* Divider */}
-          <div className="my-4 border-t border-slate-800" />
+          <div className="hidden" />
 
-          {/* Notes */}
-          <div>
-            <div className="flex items-center gap-2 px-1 text-xs font-medium uppercase tracking-wider text-slate-500">
-              <StickyNote className="h-3 w-3" />
-              Notes
-            </div>
-            <div className="mt-2">
+          <SidebarSection title="Notas" icon={StickyNote} count={notes.length}>
+            <div>
               <div className="flex gap-2">
                 <textarea
                   value={newNote}
@@ -501,23 +524,39 @@ export function ContactSidebar({
                 </Button>
               </div>
 
-              <div className="mt-2 space-y-2">
-                {notes.map((note) => (
-                  <div
-                    key={note.id}
-                    className="rounded-lg bg-slate-800 px-3 py-2"
-                  >
-                    <p className="whitespace-pre-wrap text-xs text-slate-300">
-                      {note.note_text}
-                    </p>
-                    <p className="mt-1 text-[10px] text-slate-600">
-                      {format(new Date(note.created_at), "MMM d, yyyy HH:mm")}
-                    </p>
-                  </div>
-                ))}
+              <div className="mt-2 max-h-72 space-y-2 overflow-y-auto pr-1">
+                {notes.length === 0 ? (
+                  <p className="px-1 text-xs text-slate-600">Sin notas</p>
+                ) : (
+                  notes.map((note, index) => (
+                    <details
+                      key={note.id}
+                      open={index === 0}
+                      className="group rounded-lg bg-slate-800 px-3 py-2"
+                    >
+                      <summary className="flex cursor-pointer list-none items-center justify-between gap-2">
+                        <span className="line-clamp-1 text-xs text-slate-300">
+                          {note.note_text}
+                        </span>
+                        <ChevronDown className="h-3 w-3 shrink-0 text-slate-500 transition-transform group-open:rotate-180" />
+                      </summary>
+                      <div className="mt-2">
+                        <p className="whitespace-pre-wrap text-xs text-slate-300">
+                          {note.note_text}
+                        </p>
+                        <p className="mt-1 text-[10px] text-slate-600">
+                          {format(
+                            new Date(note.created_at),
+                            "MMM d, yyyy HH:mm",
+                          )}
+                        </p>
+                      </div>
+                    </details>
+                  ))
+                )}
               </div>
             </div>
-          </div>
+          </SidebarSection>
         </div>
       </ScrollArea>
     </div>
