@@ -43,9 +43,9 @@ export interface ThemeMeta {
 export const THEMES: ReadonlyArray<ThemeMeta> = [
   {
     id: "violet",
-    name: "Violeta",
-    tagline: "El tema base: seguro, moderno y con energia.",
-    swatch: "oklch(0.526 0.247 293)",
+    name: "SophIA",
+    tagline: "Violeta neural con acento teal para la identidad oficial.",
+    swatch: "#534AB7",
   },
   {
     id: "emerald",

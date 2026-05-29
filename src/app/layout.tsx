@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import Script from "next/script";
 import { Toaster } from "sonner";
 import "./globals.css";
@@ -7,7 +7,7 @@ import { ThemeProvider } from "@/hooks/use-theme";
 import { LanguageProvider } from "@/hooks/use-language";
 import { DEFAULT_THEME, STORAGE_KEY, THEME_IDS } from "@/lib/themes";
 
-const inter = Inter({
+const plusJakarta = Plus_Jakarta_Sans({
   variable: "--font-sans",
   subsets: ["latin"],
 });
@@ -33,7 +33,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#020617",
+  themeColor: "#0E0B2E",
   colorScheme: "dark",
 };
 
@@ -70,7 +70,7 @@ export default function RootLayout({
     <html
       lang="es-419"
       data-theme={DEFAULT_THEME}
-      className={`${inter.variable} h-full antialiased`}
+      className={`${plusJakarta.variable} h-full antialiased`}
     >
       <head>
         <Script
@@ -88,8 +88,8 @@ export default function RootLayout({
               position="top-right"
               toastOptions={{
                 style: {
-                  background: "rgb(30 41 59)",
-                  border: "1px solid rgb(51 65 85)",
+                  background: "#151132",
+                  border: "1px solid rgba(127,119,221,0.22)",
                   color: "white",
                 },
               }}
