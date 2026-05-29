@@ -106,6 +106,7 @@ async function processTelegramUpdate(update: TelegramUpdate) {
     contactName,
   );
   if (!contact) return;
+  const leadData = await captureLeadDataFromText(userId, contact, contentText);
 
   const conversation = await findOrCreateConversation(userId, contact.id);
   if (!conversation) return;
@@ -146,6 +147,7 @@ async function processTelegramUpdate(update: TelegramUpdate) {
       botToken: config.bot_token as string,
       chatId: String(message.chat.id),
       contact,
+      leadData,
       conversation,
       customerText: contentText,
     });
@@ -162,10 +164,142 @@ function getTelegramMessageText(message: TelegramMessage) {
   return message.text || message.caption || '[Mensaje de Telegram sin texto]';
 }
 
+function extractEmail(text: string) {
+  return text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)?.[0]?.toLowerCase();
+}
+
+function extractPhone(text: string) {
+  const candidates = text.match(/(?:\+?\d[\d\s().-]{7,}\d)/g) ?? [];
+  for (const candidate of candidates) {
+    const digits = candidate.replace(/\D/g, '');
+    if (digits.length >= 8 && digits.length <= 16) {
+      return candidate.trim();
+    }
+  }
+  return undefined;
+}
+
+function detectLeadIntent(text: string) {
+  const normalized = text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '');
+
+  if (
+    /\b(contratar|comprar|demo|cotizacion|cotizar|precio|precios|costo|costos|agenda|agendar|reunion|llamada)\b/.test(
+      normalized,
+    )
+  ) {
+    return 'alta';
+  }
+
+  if (
+    /\b(informacion|info|servicios|producto|productos|como funciona|me interesa|quiero saber)\b/.test(
+      normalized,
+    )
+  ) {
+    return 'media';
+  }
+
+  return 'exploracion';
+}
+
+async function captureLeadDataFromText(
+  userId: string,
+  contact: ContactRow,
+  text: string,
+): Promise<LeadData> {
+  const email = extractEmail(text);
+  const realPhone = extractPhone(text);
+  const intent = detectLeadIntent(text);
+  const admin = supabaseAuthAdmin();
+
+  if (email && email !== contact.email) {
+    const { error } = await admin
+      .from('contacts')
+      .update({ email, updated_at: new Date().toISOString() })
+      .eq('id', contact.id)
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error('[telegram/webhook] email capture failed:', error.message);
+    } else {
+      contact.email = email;
+    }
+  }
+
+  await upsertContactCustomValue(userId, contact.id, 'intencion_lead', intent);
+
+  if (realPhone) {
+    await upsertContactCustomValue(userId, contact.id, 'telefono_real', realPhone);
+  }
+
+  return { email, realPhone, intent };
+}
+
+async function upsertContactCustomValue(
+  userId: string,
+  contactId: string,
+  fieldName: string,
+  value: string,
+) {
+  const admin = supabaseAuthAdmin();
+  const { data: field, error: fieldError } = await admin
+    .from('custom_fields')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('field_name', fieldName)
+    .maybeSingle();
+
+  if (fieldError) {
+    console.error('[telegram/webhook] custom field lookup failed:', fieldError.message);
+    return;
+  }
+
+  let fieldId = field?.id as string | undefined;
+  if (!fieldId) {
+    const { data: createdField, error: createFieldError } = await admin
+      .from('custom_fields')
+      .insert({
+        user_id: userId,
+        field_name: fieldName,
+        field_type: 'text',
+      })
+      .select('id')
+      .single();
+
+    if (createFieldError || !createdField?.id) {
+      console.error(
+        '[telegram/webhook] custom field create failed:',
+        createFieldError?.message,
+      );
+      return;
+    }
+
+    fieldId = createdField.id as string;
+  }
+
+  const { error: valueError } = await admin
+    .from('contact_custom_values')
+    .upsert(
+      {
+        contact_id: contactId,
+        custom_field_id: fieldId,
+        value,
+      },
+      { onConflict: 'contact_id,custom_field_id' },
+    );
+
+  if (valueError) {
+    console.error('[telegram/webhook] custom value upsert failed:', valueError.message);
+  }
+}
+
 interface ContactRow {
   id: string;
   name?: string | null;
   phone: string;
+  email?: string | null;
 }
 
 async function findOrCreateTelegramContact(
@@ -176,7 +310,7 @@ async function findOrCreateTelegramContact(
   const admin = supabaseAuthAdmin();
   const { data: existing, error: findError } = await admin
     .from('contacts')
-    .select('id, name, phone')
+    .select('id, name, phone, email')
     .eq('user_id', userId)
     .eq('phone', phone)
     .maybeSingle();
@@ -203,7 +337,7 @@ async function findOrCreateTelegramContact(
       phone,
       name,
     })
-    .select('id, name, phone')
+    .select('id, name, phone, email')
     .single();
 
   if (createError) {
@@ -226,6 +360,12 @@ interface AgentRow {
   temperature: number | string | null;
   is_active: boolean;
   system_prompt: string;
+}
+
+interface LeadData {
+  email?: string;
+  realPhone?: string;
+  intent?: string;
 }
 
 async function findOrCreateConversation(
@@ -269,6 +409,7 @@ async function maybeRunTelegramAgent(input: {
   botToken: string;
   chatId: string;
   contact: ContactRow;
+  leadData: LeadData;
   conversation: ConversationRow;
   customerText: string;
 }) {
@@ -397,6 +538,13 @@ async function maybeRunTelegramAgent(input: {
         contactContext: [
           `Contact name: ${input.contact.name || 'Telegram lead'}`,
           `Contact channel id: ${input.contact.phone}`,
+          `Email: ${input.leadData.email || input.contact.email || 'unknown'}`,
+          `Real phone: ${input.leadData.realPhone || 'unknown'}`,
+          `Detected intent: ${input.leadData.intent || 'unknown'}`,
+          `Missing follow-up data: ${[
+            input.leadData.email || input.contact.email ? '' : 'email',
+            input.leadData.realPhone ? '' : 'real phone',
+          ].filter(Boolean).join(', ') || 'none'}`,
           'Channel: Telegram',
         ].join('\n'),
         sessionSummary,
