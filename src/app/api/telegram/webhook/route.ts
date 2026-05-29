@@ -202,7 +202,7 @@ function detectLeadIntent(text: string) {
     .replace(/\p{Diacritic}/gu, '');
 
   if (
-    /\b(contratar|comprar|demo|cotizacion|cotizar|precio|precios|costo|costos|agenda|agendar|reunion|llamada)\b/.test(
+    /\b(contratar|comprar|demo|cotizacion|cotizar|precio|precios|costo|costos|agenda|agendar|reunion|llamada|asesor|asesoria|especialista|contacto|contactarme|contactar|planes|plan)\b/.test(
       normalized,
     )
   ) {
@@ -210,7 +210,7 @@ function detectLeadIntent(text: string) {
   }
 
   if (
-    /\b(informacion|info|servicios|producto|productos|como funciona|me interesa|quiero saber)\b/.test(
+    /\b(informacion|info|servicios|servicio|producto|productos|como funciona|me interesa|interes|interesado|interesada|quiero saber|saber mas|sistema|crm|clinica|clinicas|consultorio|despacho|negocio|necesito|busco)\b/.test(
       normalized,
     )
   ) {
