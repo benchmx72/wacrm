@@ -9,6 +9,7 @@ import {
   UserPlus,
   DollarSign,
   Send,
+  Target,
 } from 'lucide-react'
 
 import {
@@ -129,9 +130,9 @@ export default function DashboardPage() {
       </div>
 
       {/* Metric cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
         {metricsLoading || !metrics ? (
-          Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
+          Array.from({ length: 5 }).map((_, i) => <SkeletonCard key={i} />)
         ) : (
           <>
             <MetricCard
@@ -162,6 +163,17 @@ export default function DashboardPage() {
                   locale,
                 ),
               }}
+            />
+            <MetricCard
+              title={t('dashboard.metrics.qualifiedLeads')}
+              value={metrics.qualifiedLeadsCount.toLocaleString(locale)}
+              icon={Target}
+              subtitle={t(
+                metrics.hotLeadsCount === 1
+                  ? 'dashboard.metrics.hotLead'
+                  : 'dashboard.metrics.hotLeads',
+                { count: metrics.hotLeadsCount },
+              )}
             />
             <MetricCard
               title={t('dashboard.metrics.openDealsValue')}

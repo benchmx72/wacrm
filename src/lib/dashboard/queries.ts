@@ -77,6 +77,7 @@ export async function loadMetrics(db: DB): Promise<MetricsBundle> {
 
   const openDealsRows = (openDeals.data ?? []) as { value: number | null }[]
   const openDealsValue = openDealsRows.reduce((sum, d) => sum + (d.value ?? 0), 0)
+  const leadIntent = await loadLeadIntentCounts(db)
 
   return {
     activeConversations: {
@@ -90,12 +91,46 @@ export async function loadMetrics(db: DB): Promise<MetricsBundle> {
       current: newContactsToday.count ?? 0,
       previous: newContactsYesterday.count ?? 0,
     },
+    qualifiedLeadsCount: leadIntent.qualified,
+    hotLeadsCount: leadIntent.hot,
     openDealsValue,
     openDealsCount: openDealsRows.length,
     messagesSentToday: {
       current: messagesToday.count ?? 0,
       previous: messagesYesterday.count ?? 0,
     },
+  }
+}
+
+async function loadLeadIntentCounts(db: DB) {
+  const { data: field, error: fieldError } = await db
+    .from('custom_fields')
+    .select('id')
+    .eq('field_name', 'intencion_lead')
+    .maybeSingle()
+
+  if (fieldError) throw fieldError
+  if (!field?.id) return { qualified: 0, hot: 0 }
+
+  const [qualified, hot] = await Promise.all([
+    db
+      .from('contact_custom_values')
+      .select('id', { count: 'exact', head: true })
+      .eq('custom_field_id', field.id)
+      .in('value', ['media', 'alta']),
+    db
+      .from('contact_custom_values')
+      .select('id', { count: 'exact', head: true })
+      .eq('custom_field_id', field.id)
+      .eq('value', 'alta'),
+  ])
+
+  if (qualified.error) throw qualified.error
+  if (hot.error) throw hot.error
+
+  return {
+    qualified: qualified.count ?? 0,
+    hot: hot.count ?? 0,
   }
 }
 
