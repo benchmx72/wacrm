@@ -4,6 +4,14 @@ import { createAgentResponse } from '@/lib/ai/openai';
 import { buildAgentInstructions, DEFAULT_AGENT_PROMPT } from '@/lib/ai/prompt';
 import { decrypt } from '@/lib/whatsapp/encryption';
 
+const DEFAULT_PIPELINE_STAGES = [
+  { name: 'Nuevo lead', color: '#3b82f6', position: 0 },
+  { name: 'Calificado', color: '#eab308', position: 1 },
+  { name: 'Propuesta enviada', color: '#f97316', position: 2 },
+  { name: 'Negociacion', color: '#8b5cf6', position: 3 },
+  { name: 'Ganado', color: '#22c55e', position: 4 },
+];
+
 interface TelegramUser {
   id: number;
   is_bot?: boolean;
@@ -141,6 +149,14 @@ async function processTelegramUpdate(update: TelegramUpdate) {
     console.error('[telegram/webhook] conversation update failed:', updateError.message);
   }
 
+  await maybeCreateTelegramDeal({
+    userId,
+    contact,
+    conversation,
+    leadData,
+    customerText: contentText,
+  });
+
   if (update.message) {
     await maybeRunTelegramAgent({
       userId,
@@ -204,6 +220,26 @@ function detectLeadIntent(text: string) {
   return 'exploracion';
 }
 
+function leadIntentRank(intent?: string | null) {
+  if (intent === 'alta') return 3;
+  if (intent === 'media') return 2;
+  if (intent === 'exploracion') return 1;
+  return 0;
+}
+
+function strongestLeadIntent(
+  previousIntent: string | null | undefined,
+  detectedIntent: string,
+) {
+  return leadIntentRank(previousIntent) > leadIntentRank(detectedIntent) && previousIntent
+    ? previousIntent
+    : detectedIntent;
+}
+
+function shouldCreateDealForIntent(intent?: string) {
+  return intent === 'media' || intent === 'alta';
+}
+
 async function captureLeadDataFromText(
   userId: string,
   contact: ContactRow,
@@ -211,7 +247,17 @@ async function captureLeadDataFromText(
 ): Promise<LeadData> {
   const email = extractEmail(text);
   const realPhone = extractPhone(text);
-  const intent = detectLeadIntent(text);
+  const previousIntent = await getContactCustomValue(
+    userId,
+    contact.id,
+    'intencion_lead',
+  );
+  const existingRealPhone = await getContactCustomValue(
+    userId,
+    contact.id,
+    'telefono_real',
+  );
+  const intent = strongestLeadIntent(previousIntent, detectLeadIntent(text));
   const admin = supabaseAuthAdmin();
 
   if (email && email !== contact.email) {
@@ -234,7 +280,46 @@ async function captureLeadDataFromText(
     await upsertContactCustomValue(userId, contact.id, 'telefono_real', realPhone);
   }
 
-  return { email, realPhone, intent };
+  return {
+    email: email ?? contact.email ?? undefined,
+    realPhone: realPhone ?? existingRealPhone ?? undefined,
+    intent: intent ?? undefined,
+  };
+}
+
+async function getContactCustomValue(
+  userId: string,
+  contactId: string,
+  fieldName: string,
+) {
+  const admin = supabaseAuthAdmin();
+  const { data: field, error: fieldError } = await admin
+    .from('custom_fields')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('field_name', fieldName)
+    .maybeSingle();
+
+  if (fieldError) {
+    console.error('[telegram/webhook] custom field lookup failed:', fieldError.message);
+    return null;
+  }
+
+  if (!field?.id) return null;
+
+  const { data: value, error: valueError } = await admin
+    .from('contact_custom_values')
+    .select('value')
+    .eq('contact_id', contactId)
+    .eq('custom_field_id', field.id)
+    .maybeSingle();
+
+  if (valueError) {
+    console.error('[telegram/webhook] custom value lookup failed:', valueError.message);
+    return null;
+  }
+
+  return typeof value?.value === 'string' ? value.value : null;
 }
 
 async function upsertContactCustomValue(
@@ -368,6 +453,14 @@ interface LeadData {
   intent?: string;
 }
 
+interface PipelineRow {
+  id: string;
+}
+
+interface PipelineStageRow {
+  id: string;
+}
+
 async function findOrCreateConversation(
   userId: string,
   contactId: string,
@@ -402,6 +495,132 @@ async function findOrCreateConversation(
   }
 
   return created as ConversationRow;
+}
+
+async function getOrCreateDefaultPipeline(userId: string): Promise<PipelineRow | null> {
+  const admin = supabaseAuthAdmin();
+  const { data: existing, error: existingError } = await admin
+    .from('pipelines')
+    .select('id')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (existingError) {
+    console.error('[telegram/deal] pipeline lookup failed:', existingError.message);
+    return null;
+  }
+
+  if (existing?.id) return existing as PipelineRow;
+
+  const { data: pipeline, error: pipelineError } = await admin
+    .from('pipelines')
+    .insert({ user_id: userId, name: 'Pipeline de ventas' })
+    .select('id')
+    .single();
+
+  if (pipelineError || !pipeline?.id) {
+    console.error('[telegram/deal] pipeline create failed:', pipelineError?.message);
+    return null;
+  }
+
+  const { error: stagesError } = await admin.from('pipeline_stages').insert(
+    DEFAULT_PIPELINE_STAGES.map((stage) => ({
+      pipeline_id: pipeline.id,
+      ...stage,
+    })),
+  );
+
+  if (stagesError) {
+    console.error('[telegram/deal] default stages create failed:', stagesError.message);
+  }
+
+  return pipeline as PipelineRow;
+}
+
+async function getFirstPipelineStage(
+  pipelineId: string,
+): Promise<PipelineStageRow | null> {
+  const admin = supabaseAuthAdmin();
+  const { data: stage, error } = await admin
+    .from('pipeline_stages')
+    .select('id')
+    .eq('pipeline_id', pipelineId)
+    .order('position', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error('[telegram/deal] stage lookup failed:', error.message);
+    return null;
+  }
+
+  return (stage as PipelineStageRow | null) ?? null;
+}
+
+async function maybeCreateTelegramDeal(input: {
+  userId: string;
+  contact: ContactRow;
+  conversation: ConversationRow;
+  leadData: LeadData;
+  customerText: string;
+}) {
+  if (!shouldCreateDealForIntent(input.leadData.intent)) return;
+
+  const admin = supabaseAuthAdmin();
+  const { data: existingDeal, error: existingDealError } = await admin
+    .from('deals')
+    .select('id')
+    .eq('user_id', input.userId)
+    .eq('contact_id', input.contact.id)
+    .eq('status', 'open')
+    .limit(1)
+    .maybeSingle();
+
+  if (existingDealError) {
+    console.error('[telegram/deal] duplicate lookup failed:', existingDealError.message);
+    return;
+  }
+
+  if (existingDeal?.id) return;
+
+  const pipeline = await getOrCreateDefaultPipeline(input.userId);
+  if (!pipeline) return;
+
+  const firstStage = await getFirstPipelineStage(pipeline.id);
+  if (!firstStage) {
+    console.error('[telegram/deal] no stage found for pipeline:', pipeline.id);
+    return;
+  }
+
+  const notes = [
+    'Fuente: Telegram',
+    `Intencion detectada: ${input.leadData.intent}`,
+    input.leadData.email ? `Email: ${input.leadData.email}` : '',
+    input.leadData.realPhone ? `Telefono real: ${input.leadData.realPhone}` : '',
+    `ID Telegram: ${input.contact.phone}`,
+    `Ultimo mensaje: ${input.customerText}`,
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  const { error: insertError } = await admin.from('deals').insert({
+    user_id: input.userId,
+    pipeline_id: pipeline.id,
+    stage_id: firstStage.id,
+    contact_id: input.contact.id,
+    conversation_id: input.conversation.id,
+    title: `Lead Telegram - ${input.contact.name || input.contact.phone}`,
+    value: 0,
+    currency: 'USD',
+    notes,
+    status: 'open',
+  });
+
+  if (insertError) {
+    console.error('[telegram/deal] create failed:', insertError.message);
+  }
 }
 
 async function maybeRunTelegramAgent(input: {
