@@ -3,7 +3,13 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import type { Conversation, Message, Contact, ConversationStatus } from "@/types";
+import type {
+  Conversation,
+  Message,
+  Contact,
+  ConversationStatus,
+  MessagingChannel,
+} from "@/types";
 import { useRealtime } from "@/hooks/use-realtime";
 import { ConversationList } from "@/components/inbox/conversation-list";
 import { MessageThread } from "@/components/inbox/message-thread";
@@ -20,6 +26,7 @@ export default function InboxPage() {
   const searchParams = useSearchParams();
   const { profile } = useAuth();
   const canUseDemoTools = hasPermission(profile?.role, "use_demo_tools");
+  const activeMessagingChannel = profile?.messaging_channel ?? "whatsapp";
   /**
    * `?c=<id>` deep-link support. Used when landing here from the
    * dashboard's recent-conversations list so the right thread opens
@@ -32,9 +39,7 @@ export default function InboxPage() {
     useState<Conversation | null>(null);
   const [activeContact, setActiveContact] = useState<Contact | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [whatsappConnected, setWhatsappConnected] = useState<boolean | null>(
-    null
-  );
+  const [channelConnected, setChannelConnected] = useState<boolean | null>(null);
   /**
    * Bumped whenever we want children (ConversationList, MessageThread)
    * to refetch from the DB — used as a safety net against missed
@@ -127,9 +132,10 @@ export default function InboxPage() {
     }
   }, []);
 
-  // Check WhatsApp connection status on mount
+  // Check the active messaging channel connection status.
   useEffect(() => {
     const checkConnection = async () => {
+      setChannelConnected(null);
       const supabase = createClient();
       const {
         data: { session },
@@ -138,16 +144,16 @@ export default function InboxPage() {
 
       if (!user) return;
 
-      // Table is `whatsapp_config` (singular) — the previous "whatsapp_configs"
-      // query always returned no rows, so the banner always showed "not connected".
       const accountOwnerId = await getClientAccountOwnerId(supabase, user.id);
+      const table =
+        activeMessagingChannel === "telegram" ? "telegram_config" : "whatsapp_config";
       const { data } = await supabase
-        .from("whatsapp_config")
+        .from(table)
         .select("status")
         .eq("user_id", accountOwnerId)
         .maybeSingle();
 
-      setWhatsappConnected(data?.status === "connected");
+      setChannelConnected(data?.status === "connected");
     };
 
     checkConnection();
@@ -534,13 +540,13 @@ export default function InboxPage() {
 
   return (
     <div className="-m-4 flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden sm:-m-6">
-      {/* WhatsApp connection banner — in the flex column, not absolute,
+      {/* Channel connection banner — in the flex column, not absolute,
           so it pushes the panels down instead of overlapping them. */}
-      {whatsappConnected === false && (
+      {channelConnected === false && (
         <div className="flex shrink-0 items-center justify-center gap-2 border-b border-amber-500/20 bg-amber-500/10 px-4 py-2">
           <WifiOff className="h-4 w-4 text-amber-400" />
           <p className="text-xs text-amber-400">
-            WhatsApp® is not connected. Go to Settings to connect your account.
+            {getDisconnectedBannerText(activeMessagingChannel)}
           </p>
         </div>
       )}
@@ -598,4 +604,12 @@ export default function InboxPage() {
       </div>
     </div>
   );
+}
+
+function getDisconnectedBannerText(channel: MessagingChannel) {
+  if (channel === "telegram") {
+    return "Telegram no esta conectado. Ve a Configuracion para conectar tu bot.";
+  }
+
+  return "WhatsApp no esta conectado. Ve a Configuracion para conectar tu cuenta.";
 }
