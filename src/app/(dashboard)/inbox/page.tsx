@@ -19,7 +19,6 @@ import { WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { hasPermission } from "@/lib/auth/roles";
-import { getClientAccountOwnerId } from "@/lib/auth/account";
 
 export default function InboxPage() {
   const router = useRouter();
@@ -134,30 +133,31 @@ export default function InboxPage() {
 
   // Check the active messaging channel connection status.
   useEffect(() => {
+    let cancelled = false;
     const checkConnection = async () => {
       setChannelConnected(null);
-      const supabase = createClient();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const user = session?.user;
+      const endpoint =
+        activeMessagingChannel === "telegram"
+          ? "/api/telegram/config"
+          : "/api/whatsapp/config";
 
-      if (!user) return;
-
-      const accountOwnerId = await getClientAccountOwnerId(supabase, user.id);
-      const table =
-        activeMessagingChannel === "telegram" ? "telegram_config" : "whatsapp_config";
-      const { data } = await supabase
-        .from(table)
-        .select("status")
-        .eq("user_id", accountOwnerId)
-        .maybeSingle();
-
-      setChannelConnected(data?.status === "connected");
+      try {
+        const response = await fetch(endpoint, { cache: "no-store" });
+        const payload = await response.json().catch(() => ({}));
+        if (!cancelled) {
+          setChannelConnected(response.ok && payload?.connected === true);
+        }
+      } catch (error) {
+        console.error("Failed to check channel connection:", error);
+        if (!cancelled) setChannelConnected(false);
+      }
     };
 
-    checkConnection();
-  }, []);
+    void checkConnection();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeMessagingChannel]);
 
   // Handle realtime message events
   const handleMessageEvent = useCallback(
