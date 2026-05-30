@@ -12,6 +12,8 @@ export interface MetricsBundle {
   newContactsToday: MetricDelta
   qualifiedLeadsCount: number
   hotLeadsCount: number
+  proposedAppointmentsCount: number
+  confirmedAppointmentsCount: number
   openDealsValue: number
   openDealsCount: number
   messagesSentToday: MetricDelta

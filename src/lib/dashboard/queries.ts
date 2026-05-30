@@ -40,6 +40,8 @@ export async function loadMetrics(db: DB): Promise<MetricsBundle> {
     newContactsToday,
     newContactsYesterday,
     openDeals,
+    proposedAppointments,
+    confirmedAppointments,
     messagesToday,
     messagesYesterday,
   ] = await Promise.all([
@@ -62,6 +64,14 @@ export async function loadMetrics(db: DB): Promise<MetricsBundle> {
       .gte('created_at', yesterdayStart)
       .lt('created_at', todayStart),
     db.from('deals').select('value, status').eq('status', 'open'),
+    db
+      .from('appointments')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'proposed'),
+    db
+      .from('appointments')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'confirmed'),
     db
       .from('messages')
       .select('id', { count: 'exact', head: true })
@@ -93,6 +103,8 @@ export async function loadMetrics(db: DB): Promise<MetricsBundle> {
     },
     qualifiedLeadsCount: leadIntent.qualified,
     hotLeadsCount: leadIntent.hot,
+    proposedAppointmentsCount: proposedAppointments.count ?? 0,
+    confirmedAppointmentsCount: confirmedAppointments.count ?? 0,
     openDealsValue,
     openDealsCount: openDealsRows.length,
     messagesSentToday: {

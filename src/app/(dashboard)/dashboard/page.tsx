@@ -10,6 +10,7 @@ import {
   DollarSign,
   Send,
   Target,
+  CalendarCheck,
 } from 'lucide-react'
 
 import {
@@ -130,9 +131,9 @@ export default function DashboardPage() {
       </div>
 
       {/* Metric cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
         {metricsLoading || !metrics ? (
-          Array.from({ length: 5 }).map((_, i) => <SkeletonCard key={i} />)
+          Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)
         ) : (
           <>
             <MetricCard
@@ -173,6 +174,17 @@ export default function DashboardPage() {
                   ? 'dashboard.metrics.hotLead'
                   : 'dashboard.metrics.hotLeads',
                 { count: metrics.hotLeadsCount },
+              )}
+            />
+            <MetricCard
+              title={t('dashboard.metrics.proposedAppointments')}
+              value={metrics.proposedAppointmentsCount.toLocaleString(locale)}
+              icon={CalendarCheck}
+              subtitle={t(
+                metrics.confirmedAppointmentsCount === 1
+                  ? 'dashboard.metrics.confirmedAppointment'
+                  : 'dashboard.metrics.confirmedAppointments',
+                { count: metrics.confirmedAppointmentsCount },
               )}
             />
             <MetricCard
