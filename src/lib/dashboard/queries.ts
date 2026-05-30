@@ -9,6 +9,7 @@ import {
 } from './date-utils'
 import type {
   ActivityItem,
+  ChannelBreakdown,
   ConversationsSeriesPoint,
   MetricsBundle,
   PipelineDonutData,
@@ -173,6 +174,42 @@ export async function loadConversationsSeries(
   }
 
   return keys.map((day) => ({ day, ...(buckets.get(day) ?? { incoming: 0, outgoing: 0 }) }))
+}
+
+// --- 2b. Channel breakdown --------------------------------------------
+
+export async function loadChannelBreakdown(db: DB): Promise<ChannelBreakdown> {
+  const [conversationsRes, contactsRes] = await Promise.all([
+    db.from('conversations').select('id, contacts(phone)'),
+    db.from('contacts').select('id, phone'),
+  ])
+
+  if (conversationsRes.error) throw conversationsRes.error
+  if (contactsRes.error) throw contactsRes.error
+
+  const breakdown: ChannelBreakdown = {
+    telegram: { conversations: 0, contacts: 0 },
+    whatsapp: { conversations: 0, contacts: 0 },
+  }
+
+  for (const row of (conversationsRes.data ?? []) as unknown as Array<{
+    contacts: { phone: string }[] | { phone: string } | null
+  }>) {
+    const contact = Array.isArray(row.contacts) ? row.contacts[0] : row.contacts
+    const channel = inferChannelFromPhone(contact?.phone)
+    breakdown[channel].conversations += 1
+  }
+
+  for (const row of (contactsRes.data ?? []) as Array<{ phone: string }>) {
+    const channel = inferChannelFromPhone(row.phone)
+    breakdown[channel].contacts += 1
+  }
+
+  return breakdown
+}
+
+function inferChannelFromPhone(phone: string | null | undefined): keyof ChannelBreakdown {
+  return phone?.startsWith('tg:') ? 'telegram' : 'whatsapp'
 }
 
 // --- 3. Pipeline donut -------------------------------------------------

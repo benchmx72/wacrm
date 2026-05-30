@@ -79,6 +79,12 @@ export const dictionaries = {
         newBroadcast: "Nueva difusión",
         newAutomation: "Nueva automatización",
       },
+      channels: {
+        title: "Origen por canal",
+        subtitle: "Conversaciones y contactos detectados por plataforma",
+        conversations: "Conversaciones",
+        contacts: "Contactos",
+      },
       conversations: {
         title: "Conversaciones en el tiempo",
         subtitle: "Volumen diario de mensajes por dirección",
@@ -498,6 +504,12 @@ export const dictionaries = {
         newDeal: "Novo negócio",
         newBroadcast: "Novo disparo",
         newAutomation: "Nova automação",
+      },
+      channels: {
+        title: "Origem por canal",
+        subtitle: "Conversas e contatos detectados por plataforma",
+        conversations: "Conversas",
+        contacts: "Contatos",
       },
       conversations: {
         title: "Conversas ao longo do tempo",

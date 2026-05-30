@@ -52,6 +52,17 @@ export interface ResponseTimeSummary {
   lastWeekAvg: number | null
 }
 
+export interface ChannelBreakdown {
+  telegram: {
+    conversations: number
+    contacts: number
+  }
+  whatsapp: {
+    conversations: number
+    contacts: number
+  }
+}
+
 export type ActivityKind =
   | 'message'
   | 'deal'

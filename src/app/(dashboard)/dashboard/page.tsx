@@ -15,6 +15,7 @@ import {
 
 import {
   loadActivity,
+  loadChannelBreakdown,
   loadConversationsSeries,
   loadMetrics,
   loadPipelineDonut,
@@ -22,6 +23,7 @@ import {
 } from '@/lib/dashboard/queries'
 import type {
   ActivityItem,
+  ChannelBreakdown as ChannelBreakdownData,
   ConversationsSeriesPoint,
   MetricsBundle,
   PipelineDonutData,
@@ -35,6 +37,7 @@ import { ConversationsChart } from '@/components/dashboard/conversations-chart'
 import { PipelineDonut } from '@/components/dashboard/pipeline-donut'
 import { ResponseTimeChart } from '@/components/dashboard/response-time-chart'
 import { ActivityFeed } from '@/components/dashboard/activity-feed'
+import { ChannelBreakdown } from '@/components/dashboard/channel-breakdown'
 
 type RangeDays = 7 | 30 | 90
 
@@ -63,6 +66,9 @@ export default function DashboardPage() {
   const [activity, setActivity] = useState<ActivityItem[] | null>(null)
   const [activityLoading, setActivityLoading] = useState(true)
 
+  const [channels, setChannels] = useState<ChannelBreakdownData | null>(null)
+  const [channelsLoading, setChannelsLoading] = useState(true)
+
   const loadAll = useCallback(() => {
     const db = createClient()
 
@@ -83,6 +89,11 @@ export default function DashboardPage() {
       .then((p) => setPipeline(p))
       .catch((err) => console.error('[dashboard] pipeline failed:', err))
       .finally(() => setPipelineLoading(false))
+
+    void loadChannelBreakdown(db)
+      .then((c) => setChannels(c))
+      .catch((err) => console.error('[dashboard] channels failed:', err))
+      .finally(() => setChannelsLoading(false))
 
     void loadResponseTime(db)
       .then((r) => setResponseTime(r))
@@ -219,6 +230,9 @@ export default function DashboardPage() {
 
       {/* Quick actions */}
       <QuickActions />
+
+      {/* Channel source */}
+      <ChannelBreakdown data={channels} loading={channelsLoading} />
 
       {/* Charts row */}
       {/* items-stretch (the grid default) stretches the two columns to
