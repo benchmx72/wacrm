@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { getClientAccountOwnerId } from '@/lib/auth/account';
+import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
 import { MessageTemplate } from '@/types';
 import { Step1ChooseTemplate } from '@/components/broadcasts/step1-choose-template';
@@ -11,7 +12,8 @@ import { Step2SelectAudience } from '@/components/broadcasts/step2-select-audien
 import { Step3Personalize } from '@/components/broadcasts/step3-personalize';
 import { Step4ScheduleSend } from '@/components/broadcasts/step4-schedule-send';
 import { useBroadcastSending } from '@/hooks/use-broadcast-sending';
-import { Check } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Check, Loader2, Radio, Settings } from 'lucide-react';
 
 const steps = [
   { label: 'Template', key: 'template' },
@@ -22,6 +24,7 @@ const steps = [
 
 export default function NewBroadcastPage() {
   const router = useRouter();
+  const { profile, loading: authLoading } = useAuth();
   const { createAndSendBroadcast, isProcessing, progress } = useBroadcastSending();
 
   const [currentStep, setCurrentStep] = useState(0);
@@ -41,6 +44,59 @@ export default function NewBroadcastPage() {
     Record<string, { type: 'static' | 'field' | 'custom_field'; value: string }>
   >({});
   const [name, setName] = useState('');
+
+  const messagingChannel = profile?.messaging_channel ?? 'whatsapp';
+
+  if (authLoading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (messagingChannel === 'telegram') {
+    return (
+      <div className="mx-auto max-w-2xl space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Nuevo disparo</h1>
+          <p className="mt-1 text-sm text-slate-400">
+            Las campanas masivas actuales usan plantillas aprobadas de WhatsApp.
+          </p>
+        </div>
+
+        <div className="rounded-xl border border-slate-800 bg-slate-900 p-8 text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <Radio className="h-6 w-6" />
+          </div>
+          <h2 className="mt-4 text-lg font-semibold text-white">
+            Disparos para Telegram aun no estan activos
+          </h2>
+          <p className="mx-auto mt-2 max-w-md text-sm text-slate-400">
+            Esta cuenta esta configurada con Telegram. Para evitar errores, el
+            asistente de campanas queda bloqueado hasta que agreguemos disparos
+            por texto para Telegram o cambies el canal a WhatsApp.
+          </p>
+          <div className="mt-6 flex flex-wrap justify-center gap-3">
+            <Button
+              variant="outline"
+              onClick={() => router.push('/broadcasts')}
+              className="border-slate-700 text-slate-300 hover:bg-slate-800"
+            >
+              Volver a disparos
+            </Button>
+            <Button
+              onClick={() => router.push('/settings?tab=channel')}
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              <Settings className="h-4 w-4" />
+              Revisar canal
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   async function handleSend() {
     if (!template) return;

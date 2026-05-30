@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { MessageTemplate } from '@/types';
 import { Button } from '@/components/ui/button';
-import { Loader2, FileText, ArrowRight } from 'lucide-react';
+import { Loader2, FileText, ArrowRight, Settings } from 'lucide-react';
 
 const categoryColors: Record<string, string> = {
   Marketing: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
@@ -61,6 +62,10 @@ export function Step1ChooseTemplate({ selectedTemplate, onSelect, onNext, onBack
     );
   }
 
+  const approvedTemplates = templates.filter(
+    (template) => template.status === 'Approved',
+  );
+
   return (
     <div className="space-y-6">
       <div>
@@ -71,14 +76,43 @@ export function Step1ChooseTemplate({ selectedTemplate, onSelect, onNext, onBack
       </div>
 
       {templates.length === 0 ? (
-        <div className="flex h-48 flex-col items-center justify-center rounded-xl border border-slate-800 bg-slate-900/50">
+        <div className="flex min-h-52 flex-col items-center justify-center rounded-xl border border-slate-800 bg-slate-900/50 p-6 text-center">
           <FileText className="mb-2 h-8 w-8 text-slate-600" />
-          <p className="text-sm text-slate-400">No templates available.</p>
-          <p className="mt-1 text-xs text-slate-500">Create a template in Settings first.</p>
+          <p className="text-sm font-medium text-white">No hay plantillas disponibles.</p>
+          <p className="mt-1 max-w-md text-xs text-slate-500">
+            Para WhatsApp, primero sincroniza plantillas aprobadas desde Meta o
+            crea una plantilla en WhatsApp Manager y despues sincronizala.
+          </p>
+          <Link
+            href="/settings?tab=templates"
+            className="mt-4 inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-primary px-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            <Settings className="h-4 w-4" />
+            Ir a Plantillas
+          </Link>
+        </div>
+      ) : approvedTemplates.length === 0 ? (
+        <div className="flex min-h-52 flex-col items-center justify-center rounded-xl border border-slate-800 bg-slate-900/50 p-6 text-center">
+          <FileText className="mb-2 h-8 w-8 text-slate-600" />
+          <p className="text-sm font-medium text-white">
+            No hay plantillas aprobadas.
+          </p>
+          <p className="mt-1 max-w-md text-xs text-slate-500">
+            Los disparos solo pueden enviarse con plantillas aprobadas por
+            Meta. Revisa Configuracion &gt; Plantillas y usa Sincronizar desde
+            Meta para traer la lista aprobada.
+          </p>
+          <Link
+            href="/settings?tab=templates"
+            className="mt-4 inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-primary px-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            <Settings className="h-4 w-4" />
+            Revisar plantillas
+          </Link>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {templates.map((template) => {
+          {approvedTemplates.map((template) => {
             const isSelected = selectedTemplate?.id === template.id;
             const catColor = categoryColors[template.category] ?? categoryColors.Utility;
 
