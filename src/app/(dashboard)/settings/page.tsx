@@ -1,7 +1,8 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Bot, Settings, MessageSquare, Tag, User, Palette, Users, Send, RadioTower } from 'lucide-react';
+import { Bot, Settings, MessageSquare, Tag, User, Palette, Users, Send, RadioTower, Loader2 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { WhatsAppConfig } from '@/components/settings/whatsapp-config';
 import { TelegramConfig } from '@/components/settings/telegram-config';
@@ -52,7 +53,7 @@ export default function SettingsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { t } = useLanguage();
-  const { profile } = useAuth();
+  const { profile, profileLoading } = useAuth();
   const messagingChannel = profile?.messaging_channel ?? 'whatsapp';
 
   // The URL is the single source of truth for the active tab — no
@@ -70,11 +71,27 @@ export default function SettingsPage() {
   });
   const tab: TabValue = visibleTabs.includes(requestedTab) ? requestedTab : 'profile';
 
+  useEffect(() => {
+    if (profileLoading || requestedTab === tab) return;
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('tab', tab);
+    router.replace(`/settings?${params.toString()}`, { scroll: false });
+  }, [profileLoading, requestedTab, router, searchParams, tab]);
+
   const onChange = (next: TabValue) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set('tab', next);
     router.replace(`/settings?${params.toString()}`, { scroll: false });
   };
+
+  if (profileLoading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
