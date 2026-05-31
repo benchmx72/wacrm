@@ -7,12 +7,15 @@ import { createClient } from '@/lib/supabase/client';
 import { getClientAccountOwnerId } from '@/lib/auth/account';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Contact } from '@/types';
-import { ArrowLeft, Loader2, Send, Users } from 'lucide-react';
+import { Contact, Tag } from '@/types';
+import { ArrowLeft, Loader2, Send, Tags, Users } from 'lucide-react';
 
 export function TelegramBroadcastForm() {
   const router = useRouter();
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
+  const [contactTagIds, setContactTagIds] = useState<Record<string, string[]>>({});
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [name, setName] = useState('');
@@ -30,6 +33,30 @@ export function TelegramBroadcastForm() {
 
         if (error) throw error;
         setContacts(data ?? []);
+
+        const { data: tagRows, error: tagsError } = await supabase
+          .from('tags')
+          .select('*')
+          .order('name');
+        if (tagsError) throw tagsError;
+        setTags(tagRows ?? []);
+
+        if (data && data.length > 0) {
+          const { data: contactTags, error: contactTagsError } = await supabase
+            .from('contact_tags')
+            .select('contact_id, tag_id')
+            .in(
+              'contact_id',
+              data.map((contact) => contact.id),
+            );
+          if (contactTagsError) throw contactTagsError;
+
+          const index: Record<string, string[]> = {};
+          for (const row of contactTags ?? []) {
+            index[row.contact_id] = [...(index[row.contact_id] ?? []), row.tag_id];
+          }
+          setContactTagIds(index);
+        }
       } catch (err) {
         toast.error(
           err instanceof Error
@@ -44,10 +71,26 @@ export function TelegramBroadcastForm() {
     fetchTelegramContacts();
   }, []);
 
+  const filteredContacts = useMemo(() => {
+    if (selectedTagIds.length === 0) return contacts;
+    const selected = new Set(selectedTagIds);
+    return contacts.filter((contact) =>
+      (contactTagIds[contact.id] ?? []).some((tagId) => selected.has(tagId)),
+    );
+  }, [contactTagIds, contacts, selectedTagIds]);
+
   const canSend = useMemo(
-    () => name.trim().length > 0 && message.trim().length > 0 && contacts.length > 0,
-    [contacts.length, message, name],
+    () => name.trim().length > 0 && message.trim().length > 0 && filteredContacts.length > 0,
+    [filteredContacts.length, message, name],
   );
+
+  function toggleTag(tagId: string) {
+    setSelectedTagIds((current) =>
+      current.includes(tagId)
+        ? current.filter((id) => id !== tagId)
+        : [...current, tagId],
+    );
+  }
 
   async function handleSend() {
     if (!canSend) return;
@@ -73,10 +116,11 @@ export function TelegramBroadcastForm() {
             message_text: message.trim(),
           },
           audience_filter: {
-            type: 'telegram_all',
+            type: selectedTagIds.length > 0 ? 'telegram_tags' : 'telegram_all',
+            tagIds: selectedTagIds,
           },
           status: 'sending',
-          total_recipients: contacts.length,
+          total_recipients: filteredContacts.length,
           sent_count: 0,
           delivered_count: 0,
           read_count: 0,
@@ -95,7 +139,7 @@ export function TelegramBroadcastForm() {
       const { error: recipientsError } = await supabase
         .from('broadcast_recipients')
         .insert(
-          contacts.map((contact) => ({
+          filteredContacts.map((contact) => ({
             broadcast_id: broadcast.id,
             contact_id: contact.id,
             status: 'pending',
@@ -157,13 +201,52 @@ export function TelegramBroadcastForm() {
           </div>
           <div>
             <p className="text-sm font-medium text-white">
-              {contacts.length.toLocaleString()} contactos Telegram
+              {filteredContacts.length.toLocaleString()} contactos Telegram
             </p>
             <p className="text-xs text-slate-400">
-              Solo se incluyen contactos con identificador Telegram guardado.
+              {selectedTagIds.length > 0
+                ? 'Filtrado por las etiquetas seleccionadas.'
+                : 'Sin filtros: se incluyen todos los contactos con identificador Telegram.'}
             </p>
           </div>
         </div>
+      </div>
+
+      <div className="rounded-xl border border-slate-800 bg-slate-900 p-5">
+        <div className="mb-3 flex items-center gap-2">
+          <Tags className="h-4 w-4 text-primary" />
+          <p className="text-sm font-medium text-white">Audiencia por etiquetas</p>
+          <span className="text-xs text-slate-500">(opcional)</span>
+        </div>
+        {tags.length === 0 ? (
+          <p className="text-xs text-slate-500">
+            No hay etiquetas creadas. Si no seleccionas nada, se enviara a todos los contactos Telegram.
+          </p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {tags.map((tag) => {
+              const isSelected = selectedTagIds.includes(tag.id);
+              return (
+                <button
+                  key={tag.id}
+                  type="button"
+                  onClick={() => toggleTag(tag.id)}
+                  className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium transition-all ${
+                    isSelected
+                      ? 'border-primary/30 bg-primary/10 text-primary'
+                      : 'border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-600'
+                  }`}
+                >
+                  <span
+                    className="mr-1.5 h-2 w-2 rounded-full"
+                    style={{ backgroundColor: tag.color }}
+                  />
+                  {tag.name}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <div className="space-y-4 rounded-xl border border-slate-800 bg-slate-900 p-5">
