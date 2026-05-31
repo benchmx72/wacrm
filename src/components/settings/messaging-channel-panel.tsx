@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Loader2, RadioTower } from 'lucide-react';
 import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
+import { getClientAccountOwnerId } from '@/lib/auth/account';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,7 +25,7 @@ const CHANNEL_LABELS: Record<MessagingChannel, string> = {
 
 export function MessagingChannelPanel() {
   const supabase = createClient();
-  const { user, profile, refreshProfile } = useAuth();
+  const { user, profile, refreshProfile, signOut } = useAuth();
   const [channel, setChannel] = useState<MessagingChannel>('whatsapp');
   const [saving, setSaving] = useState(false);
 
@@ -37,7 +38,21 @@ export function MessagingChannelPanel() {
 
     try {
       setSaving(true);
-      const accountOwnerId = profile.account_owner_id ?? user.id;
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
+
+      if (sessionError || !session?.user) {
+        toast.error('Tu sesion expiro. Vuelve a iniciar sesion para guardar cambios.');
+        await signOut();
+        return;
+      }
+
+      const accountOwnerId = await getClientAccountOwnerId(
+        supabase,
+        session.user.id,
+      );
       const { error } = await supabase
         .from('profiles')
         .update({ messaging_channel: channel })
