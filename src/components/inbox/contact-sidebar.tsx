@@ -23,6 +23,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
+import { es, ptBR } from "date-fns/locale";
+import { useLanguage } from "@/hooks/use-language";
 
 interface ContactSidebarProps {
   contact: Contact | null;
@@ -70,6 +72,8 @@ export function ContactSidebar({
   contact,
   canUseDemoTools = false,
 }: ContactSidebarProps) {
+  const { locale, t } = useLanguage();
+  const dateLocale = locale === "pt-BR" ? ptBR : es;
   const [copied, setCopied] = useState(false);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [notes, setNotes] = useState<ContactNote[]>([]);
@@ -203,9 +207,9 @@ export function ContactSidebar({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contact_id: contact.id,
-        appointment_type: "Consulta de seguimiento",
-        preferred_time: "Por confirmar",
-        notes: "Propuesta desde Inbox. Confirmar disponibilidad antes de agendar.",
+        appointment_type: t("inbox.sidebar.followUpAppointment"),
+        preferred_time: t("appointments.toConfirm"),
+        notes: t("inbox.sidebar.proposalNote"),
       }),
     });
     const data = await res.json().catch(() => ({}));
@@ -216,7 +220,7 @@ export function ContactSidebar({
       }
     }
     setProposingAppointment(false);
-  }, [contact, proposingAppointment]);
+  }, [contact, proposingAppointment, t]);
 
   const updateAppointmentStatus = useCallback(
     async (appointmentId: string, status: Appointment["status"]) => {
@@ -243,7 +247,7 @@ export function ContactSidebar({
   if (!contact) {
     return (
       <div className="flex h-full min-h-0 w-70 items-center justify-center border-l border-slate-800 bg-slate-900">
-        <p className="text-sm text-slate-500">Select a conversation</p>
+        <p className="text-sm text-slate-500">{t("inbox.thread.selectConversation")}</p>
       </div>
     );
   }
@@ -252,10 +256,10 @@ export function ContactSidebar({
   const initials = displayName.charAt(0).toUpperCase();
   const isTelegramContact = contact.phone.startsWith("tg:");
   const statusLabels: Record<Appointment["status"], string> = {
-    proposed: "Propuesta",
-    confirmed: "Confirmada",
-    cancelled: "Cancelada",
-    completed: "Completada",
+    proposed: t("appointments.statuses.proposed"),
+    confirmed: t("appointments.statuses.confirmed"),
+    cancelled: t("appointments.statuses.cancelled"),
+    completed: t("appointments.statuses.completed"),
   };
 
   return (
@@ -304,7 +308,7 @@ export function ContactSidebar({
                 <div className="min-w-0 flex-1 text-left">
                   <p className="truncate">{leadFields.realPhone}</p>
                   <p className="text-[10px] uppercase tracking-wide text-slate-600">
-                    Telefono real
+                    {t("inbox.sidebar.realPhone")}
                   </p>
                 </div>
               </div>
@@ -323,7 +327,7 @@ export function ContactSidebar({
                 <div className="min-w-0 flex-1 text-left">
                   <p className="capitalize">{leadFields.intent}</p>
                   <p className="text-[10px] uppercase tracking-wide text-slate-600">
-                    Intencion
+                    {t("inbox.sidebar.intent")}
                   </p>
                 </div>
               </div>
@@ -342,7 +346,7 @@ export function ContactSidebar({
                 className="w-full"
               >
                 <CalendarPlus className="h-4 w-4" />
-                {proposingAppointment ? "Guardando cita..." : "Proponer cita"}
+                {proposingAppointment ? t("inbox.sidebar.savingAppointment") : t("inbox.sidebar.proposeAppointment")}
               </Button>
 
               {/* Divider */}
@@ -350,10 +354,10 @@ export function ContactSidebar({
             </>
           )}
 
-          <SidebarSection title="Tags" icon={TagIcon} count={tags.length}>
+          <SidebarSection title={t("inbox.sidebar.tags")} icon={TagIcon} count={tags.length}>
             <div className="mt-2 flex flex-wrap gap-1">
               {tags.length === 0 ? (
-                <p className="px-1 text-xs text-slate-600">No tags</p>
+                <p className="px-1 text-xs text-slate-600">{t("inbox.sidebar.noTags")}</p>
               ) : (
                 tags.map((tag) => (
                   <span
@@ -374,10 +378,10 @@ export function ContactSidebar({
           {/* Divider */}
           <div className="my-4 border-t border-slate-800" />
 
-          <SidebarSection title="Negocios activos" icon={DollarSign} count={deals.length}>
+          <SidebarSection title={t("inbox.sidebar.activeDeals")} icon={DollarSign} count={deals.length}>
             <div className="max-h-48 space-y-2 overflow-y-auto pr-1">
               {deals.length === 0 ? (
-                <p className="px-1 text-xs text-slate-600">No deals</p>
+                <p className="px-1 text-xs text-slate-600">{t("inbox.sidebar.noDeals")}</p>
               ) : (
                 deals.map((deal) => (
                   <div
@@ -413,10 +417,10 @@ export function ContactSidebar({
           {/* Divider */}
           <div className="hidden" />
 
-          <SidebarSection title="Citas" icon={CalendarPlus} count={appointments.length}>
+          <SidebarSection title={t("inbox.sidebar.appointments")} icon={CalendarPlus} count={appointments.length}>
             <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
               {appointments.length === 0 ? (
-                <p className="px-1 text-xs text-slate-600">Sin citas</p>
+                <p className="px-1 text-xs text-slate-600">{t("inbox.sidebar.noAppointments")}</p>
               ) : (
                 appointments.map((appointment, index) => (
                   <details
@@ -437,7 +441,7 @@ export function ContactSidebar({
                     </summary>
                     <div className="mt-2">
                       <p className="text-xs text-slate-400">
-                        {appointment.preferred_time ?? "Por confirmar"}
+                        {appointment.preferred_time ?? t("appointments.toConfirm")}
                       </p>
                       {appointment.notes && (
                         <p className="mt-1 whitespace-pre-wrap text-xs text-slate-500">
@@ -459,7 +463,7 @@ export function ContactSidebar({
                           className="h-7 px-1 text-[10px] text-primary hover:bg-primary/10 hover:text-primary"
                         >
                           <CheckCircle2 className="h-3 w-3" />
-                          Confirmar
+                          {t("appointments.actions.confirm")}
                         </Button>
                         <Button
                           type="button"
@@ -475,7 +479,7 @@ export function ContactSidebar({
                           className="h-7 px-1 text-[10px] text-slate-300 hover:bg-slate-700 hover:text-white"
                         >
                           <ClipboardCheck className="h-3 w-3" />
-                          Completar
+                          {t("appointments.actions.complete")}
                         </Button>
                         <Button
                           type="button"
@@ -491,7 +495,7 @@ export function ContactSidebar({
                           className="h-7 px-1 text-[10px] text-red-400 hover:bg-red-500/10 hover:text-red-300"
                         >
                           <CircleSlash className="h-3 w-3" />
-                          Cancelar
+                          {t("appointments.actions.cancel")}
                         </Button>
                       </div>
                     </div>
@@ -504,13 +508,13 @@ export function ContactSidebar({
           {/* Divider */}
           <div className="hidden" />
 
-          <SidebarSection title="Notas" icon={StickyNote} count={notes.length}>
+          <SidebarSection title={t("inbox.sidebar.notes")} icon={StickyNote} count={notes.length}>
             <div>
               <div className="flex gap-2">
                 <textarea
                   value={newNote}
                   onChange={(e) => setNewNote(e.target.value)}
-                  placeholder="Add a note..."
+                  placeholder={t("inbox.sidebar.addNote")}
                   rows={2}
                   className="flex-1 resize-none rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-primary/50"
                 />
@@ -526,7 +530,7 @@ export function ContactSidebar({
 
               <div className="mt-2 max-h-72 space-y-2 overflow-y-auto pr-1">
                 {notes.length === 0 ? (
-                  <p className="px-1 text-xs text-slate-600">Sin notas</p>
+                  <p className="px-1 text-xs text-slate-600">{t("inbox.sidebar.noNotes")}</p>
                 ) : (
                   notes.map((note, index) => (
                     <details
@@ -548,6 +552,7 @@ export function ContactSidebar({
                           {format(
                             new Date(note.created_at),
                             "MMM d, yyyy HH:mm",
+                            { locale: dateLocale },
                           )}
                         </p>
                       </div>

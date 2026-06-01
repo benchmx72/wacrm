@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import type { Conversation, ConversationStatus } from "@/types";
 import { Bot, BriefcaseBusiness, Search, ChevronDown, Stethoscope } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { es, ptBR } from "date-fns/locale";
 import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
@@ -13,8 +14,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useLanguage } from "@/hooks/use-language";
 
 interface ConversationListProps {
   activeConversationId: string | null;
@@ -38,12 +39,28 @@ const STATUS_COLORS: Record<ConversationStatus, string> = {
   closed: "bg-slate-500",
 };
 
-const FILTER_OPTIONS: { label: string; value: ConversationStatus | "all" }[] = [
-  { label: "All", value: "all" },
-  { label: "Open", value: "open" },
-  { label: "Pending", value: "pending" },
-  { label: "Closed", value: "closed" },
+const FILTER_OPTIONS: { key: "all" | ConversationStatus; value: ConversationStatus | "all" }[] = [
+  { key: "all", value: "all" },
+  { key: "open", value: "open" },
+  { key: "pending", value: "pending" },
+  { key: "closed", value: "closed" },
 ];
+
+function filterLabel(
+  t: ReturnType<typeof useLanguage>["t"],
+  key: "all" | ConversationStatus,
+) {
+  switch (key) {
+    case "all":
+      return t("inbox.status.all");
+    case "open":
+      return t("inbox.status.open");
+    case "pending":
+      return t("inbox.status.pending");
+    case "closed":
+      return t("inbox.status.closed");
+  }
+}
 
 export function ConversationList({
   activeConversationId,
@@ -54,6 +71,7 @@ export function ConversationList({
   onCreateDemo,
   creatingDemo = false,
 }: ConversationListProps) {
+  const { locale, t } = useLanguage();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<ConversationStatus | "all">("all");
   const [loading, setLoading] = useState(true);
@@ -146,6 +164,7 @@ export function ConversationList({
   );
 
   const activeFilter = FILTER_OPTIONS.find((o) => o.value === filter);
+  const dateLocale = locale === "pt-BR" ? ptBR : es;
 
   return (
     // w-full on mobile so the list occupies the whole viewport when it's
@@ -161,7 +180,7 @@ export function ConversationList({
               className="inline-flex h-8 w-full items-center justify-center gap-2 rounded-lg bg-primary px-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
             >
               <Bot className="h-4 w-4" />
-              {creatingDemo ? "Creando demo..." : "Crear demo inbox"}
+              {creatingDemo ? t("inbox.list.creatingDemo") : t("inbox.list.createDemo")}
               <ChevronDown className="h-3 w-3" />
             </DropdownMenuTrigger>
             <DropdownMenuContent
@@ -173,21 +192,21 @@ export function ConversationList({
                 className="text-sm text-slate-200"
               >
                 <Stethoscope className="mr-2 h-4 w-4 text-primary" />
-                Demo clinica medica
+                {t("inbox.list.demoMedical")}
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => onCreateDemo("legal")}
                 className="text-sm text-slate-200"
               >
                 <BriefcaseBusiness className="mr-2 h-4 w-4 text-primary" />
-                Demo despacho legal
+                {t("inbox.list.demoLegal")}
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => onCreateDemo("general")}
                 className="text-sm text-slate-200"
               >
                 <Bot className="mr-2 h-4 w-4 text-primary" />
-                Demo servicios
+                {t("inbox.list.demoServices")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -197,14 +216,14 @@ export function ConversationList({
           <Input
             value={search}
             onChange={handleSearchChange}
-            placeholder="Search conversations..."
+            placeholder={t("inbox.list.searchPlaceholder")}
             className="border-slate-700 bg-slate-800 pl-9 text-sm text-white placeholder-slate-500 focus:border-primary/50"
           />
         </div>
 
         <DropdownMenu>
           <DropdownMenuTrigger className="inline-flex items-center justify-center h-7 gap-1 px-2 text-xs text-slate-400 hover:text-white rounded-md hover:bg-slate-800">
-              {activeFilter?.label ?? "All"}
+              {activeFilter ? filterLabel(t, activeFilter.key) : t("inbox.status.all")}
               <ChevronDown className="h-3 w-3" />
           </DropdownMenuTrigger>
           <DropdownMenuContent
@@ -222,7 +241,7 @@ export function ConversationList({
                     : "text-slate-300"
                 )}
               >
-                {opt.label}
+                {filterLabel(t, opt.key)}
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
@@ -237,7 +256,7 @@ export function ConversationList({
           </div>
         ) : filtered.length === 0 ? (
           <div className="px-4 py-12 text-center">
-            <p className="text-sm text-slate-500">No conversations found</p>
+            <p className="text-sm text-slate-500">{t("inbox.list.empty")}</p>
           </div>
         ) : (
           <div className="flex flex-col">
@@ -247,6 +266,7 @@ export function ConversationList({
                 conversation={conv}
                 isActive={conv.id === activeConversationId}
                 onSelect={handleSelect}
+                dateLocale={dateLocale}
               />
             ))}
           </div>
@@ -260,15 +280,18 @@ interface ConversationItemProps {
   conversation: Conversation;
   isActive: boolean;
   onSelect: (conversation: Conversation) => void;
+  dateLocale: typeof es;
 }
 
 function ConversationItem({
   conversation,
   isActive,
   onSelect,
+  dateLocale,
 }: ConversationItemProps) {
+  const { t } = useLanguage();
   const contact = conversation.contact;
-  const displayName = contact?.name || contact?.phone || "Unknown";
+  const displayName = contact?.name || contact?.phone || t("inbox.list.unknown");
   const initials = displayName.charAt(0).toUpperCase();
 
   const handleClick = useCallback(() => {
@@ -278,6 +301,7 @@ function ConversationItem({
   const timeAgo = conversation.last_message_at
     ? formatDistanceToNow(new Date(conversation.last_message_at), {
         addSuffix: false,
+        locale: dateLocale,
       })
     : "";
 
@@ -312,7 +336,7 @@ function ConversationItem({
         </div>
         <div className="mt-0.5 flex items-center justify-between gap-2">
           <p className="truncate text-xs text-slate-400">
-            {conversation.last_message_text || "No messages yet"}
+            {conversation.last_message_text || t("inbox.thread.noMessagesYet")}
           </p>
           <div className="flex shrink-0 items-center gap-1.5">
             {conversation.unread_count > 0 && (

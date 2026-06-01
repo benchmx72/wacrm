@@ -24,6 +24,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { format, isToday, isYesterday, differenceInHours } from "date-fns";
+import { es, ptBR } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
@@ -32,13 +33,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageBubble } from "./message-bubble";
 import { MessageActions } from "./message-actions";
 import { MessageComposer } from "./message-composer";
 import { TemplatePicker } from "./template-picker";
 import { buildReplyPreview } from "./reply-quote";
 import { toast } from "sonner";
+import { useLanguage } from "@/hooks/use-language";
 
 interface ReplyDraft {
   id: string;
@@ -90,11 +91,15 @@ interface MessageThreadProps {
   onRefresh?: () => void;
 }
 
-function formatDateSeparator(dateStr: string): string {
+function formatDateSeparator(
+  dateStr: string,
+  t: ReturnType<typeof useLanguage>["t"],
+  dateLocale: typeof es,
+): string {
   const date = new Date(dateStr);
-  if (isToday(date)) return "Today";
-  if (isYesterday(date)) return "Yesterday";
-  return format(date, "MMMM d, yyyy");
+  if (isToday(date)) return t("inbox.thread.today");
+  if (isYesterday(date)) return t("inbox.thread.yesterday");
+  return format(date, "MMMM d, yyyy", { locale: dateLocale });
 }
 
 function groupMessagesByDate(messages: Message[]) {
@@ -114,11 +119,25 @@ function groupMessagesByDate(messages: Message[]) {
   return groups;
 }
 
-const STATUS_OPTIONS: { label: string; value: ConversationStatus; color: string }[] = [
-  { label: "Open", value: "open", color: "text-primary" },
-  { label: "Pending", value: "pending", color: "text-amber-400" },
-  { label: "Closed", value: "closed", color: "text-slate-400" },
+const STATUS_OPTIONS: { key: ConversationStatus; value: ConversationStatus; color: string }[] = [
+  { key: "open", value: "open", color: "text-primary" },
+  { key: "pending", value: "pending", color: "text-amber-400" },
+  { key: "closed", value: "closed", color: "text-slate-400" },
 ];
+
+function conversationStatusLabel(
+  t: ReturnType<typeof useLanguage>["t"],
+  status: ConversationStatus,
+) {
+  switch (status) {
+    case "open":
+      return t("inbox.status.open");
+    case "pending":
+      return t("inbox.status.pending");
+    case "closed":
+      return t("inbox.status.closed");
+  }
+}
 
 /**
  * WhatsApp-style doodle background applied to the chat area (both the
@@ -146,6 +165,8 @@ export function MessageThread({
   onRefresh,
 }: MessageThreadProps) {
   const { user, profile } = useAuth();
+  const { locale, t } = useLanguage();
+  const dateLocale = locale === "pt-BR" ? ptBR : es;
   const canSendMessages = hasPermission(profile?.role, "send_messages");
   const isTelegramContact = contact?.phone?.startsWith("tg:") ?? false;
   const [loading, setLoading] = useState(false);
@@ -210,23 +231,25 @@ export function MessageThread({
       .reverse()
       .find((m) => m.sender_type === "customer");
 
-    if (!lastCustomerMsg) return { expired: true, remaining: "No customer messages" };
+    if (!lastCustomerMsg) {
+      return { expired: true, remaining: t("inbox.thread.noCustomerMessages") };
+    }
 
     const hoursSince = differenceInHours(new Date(), new Date(lastCustomerMsg.created_at));
     const expired = hoursSince >= 24;
 
     if (expired) {
-      return { expired: true, remaining: "Expired" };
+      return { expired: true, remaining: t("inbox.thread.expired") };
     }
 
     const hoursLeft = 24 - hoursSince;
     const remaining =
       hoursLeft >= 1
-        ? `${Math.floor(hoursLeft)}h remaining`
-        : `${Math.floor(hoursLeft * 60)}m remaining`;
+        ? t("inbox.thread.hoursRemaining", { count: Math.floor(hoursLeft) })
+        : t("inbox.thread.minutesRemaining", { count: Math.floor(hoursLeft * 60) });
 
     return { expired, remaining };
-  }, [isTelegramContact, messages]);
+  }, [isTelegramContact, messages, t]);
 
   // Store latest callback in a ref so fetchMessages doesn't need to
   // depend on `onMessagesLoaded` — otherwise parent re-renders cause
@@ -460,7 +483,7 @@ export function MessageThread({
         if (!res.ok) {
           const reason = payload?.error || `HTTP ${res.status}`;
           console.error("Failed to send message:", reason);
-          toast.error(`Failed to send: ${reason}`);
+          toast.error(t("inbox.thread.failedToSend", { reason }));
           // Mark the optimistic bubble as failed so the user sees what happened
           onUpdateMessage(tempId, { status: "failed" });
           return;
@@ -473,11 +496,11 @@ export function MessageThread({
       } catch (err) {
         console.error("Failed to send message:", err);
         const reason = err instanceof Error ? err.message : "network error";
-        toast.error(`Failed to send: ${reason}`);
+        toast.error(t("inbox.thread.failedToSend", { reason }));
         onUpdateMessage(tempId, { status: "failed" });
       }
     },
-    [conversation, isTelegramContact, onNewMessage, onUpdateMessage]
+    [conversation, isTelegramContact, onNewMessage, onUpdateMessage, t]
   );
 
   const handleStatusChange = useCallback(
@@ -536,7 +559,7 @@ export function MessageThread({
         if (!res.ok) {
           const reason = payload?.error || `HTTP ${res.status}`;
           console.error("Failed to send template:", reason);
-          toast.error(`Failed to send template: ${reason}`);
+          toast.error(t("inbox.thread.failedToSendTemplate", { reason }));
           onUpdateMessage(tempId, { status: "failed" });
           return;
         }
@@ -545,11 +568,11 @@ export function MessageThread({
       } catch (err) {
         console.error("Failed to send template:", err);
         const reason = err instanceof Error ? err.message : "network error";
-        toast.error(`Failed to send template: ${reason}`);
+        toast.error(t("inbox.thread.failedToSendTemplate", { reason }));
         onUpdateMessage(tempId, { status: "failed" });
       }
     },
-    [conversation, onNewMessage, onUpdateMessage],
+    [conversation, onNewMessage, onUpdateMessage, t],
   );
 
   const handleSuggestReply = useCallback(async () => {
@@ -587,7 +610,7 @@ export function MessageThread({
     return map;
   }, [reactions]);
 
-  const contactDisplayName = contact?.name || contact?.phone || "Customer";
+  const contactDisplayName = contact?.name || contact?.phone || t("inbox.list.unknown");
 
   // Author label for a quoted message: "You" when we sent the parent,
   // contact name when the customer sent it.
@@ -595,9 +618,9 @@ export function MessageThread({
     (m: Message): string => {
       const isAgentMsg =
         m.sender_type === "agent" || m.sender_type === "bot";
-      return isAgentMsg ? "You" : contactDisplayName;
+      return isAgentMsg ? t("inbox.thread.you") : contactDisplayName;
     },
-    [contactDisplayName],
+    [contactDisplayName, t],
   );
 
   const handleStartReply = useCallback(
@@ -622,7 +645,7 @@ export function MessageThread({
         return;
       }
       if (messageId.startsWith("temp-")) {
-        toast.error("Wait for the message to finish sending");
+        toast.error(t("inbox.thread.waitForSend"));
         return;
       }
 
@@ -668,11 +691,11 @@ export function MessageThread({
         }
       } catch (err) {
         const reason = err instanceof Error ? err.message : "network error";
-        toast.error(`Reaction failed: ${reason}`);
+        toast.error(t("inbox.thread.reactionFailed", { reason }));
         setReactions(snapshot);
       }
     },
-    [conversation, user?.id],
+    [conversation, user?.id, t],
   );
 
   const handleAssignChange = useCallback(
@@ -687,13 +710,13 @@ export function MessageThread({
 
       if (error) {
         console.error("Failed to update assignment:", error);
-        toast.error("Failed to update assignment");
+        toast.error(t("inbox.thread.failedAssignment"));
         return;
       }
 
       onAssignChange(conversation.id, agentId);
     },
-    [conversation, onAssignChange],
+    [conversation, onAssignChange, t],
   );
 
   // Empty state — same WhatsApp-style doodle background as the active
@@ -706,10 +729,10 @@ export function MessageThread({
           <MessageSquare className="h-8 w-8 text-slate-600" />
         </div>
         <h3 className="mt-4 text-sm font-medium text-slate-400">
-          Select a conversation
+          {t("inbox.thread.selectConversation")}
         </h3>
         <p className="mt-1 text-xs text-slate-600">
-          Choose a conversation from the left to start messaging
+          {t("inbox.thread.selectConversationHint")}
         </p>
       </div>
     );
@@ -723,8 +746,8 @@ export function MessageThread({
   const assignedAgentId = conversation.assigned_agent_id ?? null;
   const currentAssignee = profiles.find((p) => p.user_id === assignedAgentId);
   const assignLabel = assignedAgentId
-    ? (currentAssignee?.full_name ?? "Assigned")
-    : "Assign";
+    ? (currentAssignee?.full_name ?? t("inbox.thread.assigned"))
+    : t("inbox.thread.assign");
 
   return (
     <div className={cn("flex flex-1 flex-col", DOODLE_BG_CLASSES)}>
@@ -738,7 +761,7 @@ export function MessageThread({
             <button
               type="button"
               onClick={onBack}
-              aria-label="Back to conversations"
+              aria-label={t("inbox.thread.backToConversations")}
               className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md text-slate-300 hover:bg-slate-800 hover:text-white lg:hidden"
             >
               <ArrowLeft className="h-5 w-5" />
@@ -776,8 +799,8 @@ export function MessageThread({
               type="button"
               onClick={handleRefreshClick}
               disabled={isRefreshing}
-              aria-label="Refresh conversation"
-              title="Refresh"
+              aria-label={t("inbox.thread.refreshConversation")}
+              title={t("inbox.thread.refresh")}
               className={cn(
                 "inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-800 hover:text-white disabled:opacity-60",
               )}
@@ -794,7 +817,9 @@ export function MessageThread({
                   "inline-flex items-center justify-center h-7 gap-1 px-2 text-xs rounded-md hover:bg-slate-800",
                   currentStatus?.color ?? "text-slate-400"
                 )}>
-                {currentStatus?.label ?? "Status"}
+                {currentStatus
+                  ? conversationStatusLabel(t, currentStatus.value)
+                  : t("inbox.thread.status")}
                 <ChevronDown className="h-3 w-3" />
             </DropdownMenuTrigger>
             <DropdownMenuContent
@@ -807,7 +832,7 @@ export function MessageThread({
                   onClick={() => handleStatusChange(opt.value)}
                   className={cn("text-sm", opt.color)}
                 >
-                  {opt.label}
+                  {conversationStatusLabel(t, opt.value)}
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>
@@ -831,7 +856,7 @@ export function MessageThread({
             >
               {profiles.length === 0 ? (
                 <DropdownMenuItem disabled className="text-sm text-slate-500">
-                  No teammates available
+                  {t("inbox.thread.noTeammates")}
                 </DropdownMenuItem>
               ) : (
                 profiles.map((p) => {
@@ -847,7 +872,7 @@ export function MessageThread({
                     >
                       <span className="flex-1">
                         {p.full_name}
-                        {p.user_id === user?.id ? " (me)" : ""}
+                        {p.user_id === user?.id ? ` (${t("inbox.thread.me")})` : ""}
                       </span>
                       {isSelected && <Check className="ml-2 h-3 w-3" />}
                     </DropdownMenuItem>
@@ -861,7 +886,7 @@ export function MessageThread({
                     onClick={() => handleAssignChange(null)}
                     className="text-sm text-slate-400"
                   >
-                    Unassign
+                    {t("inbox.thread.unassign")}
                   </DropdownMenuItem>
                 </>
               )}
@@ -878,9 +903,9 @@ export function MessageThread({
           </div>
         ) : messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12">
-            <p className="text-sm text-slate-500">No messages yet</p>
+            <p className="text-sm text-slate-500">{t("inbox.thread.noMessagesYet")}</p>
             <p className="text-xs text-slate-600">
-              Send a template to start the conversation
+              {t("inbox.thread.sendTemplateToStart")}
             </p>
           </div>
         ) : (
@@ -890,7 +915,7 @@ export function MessageThread({
                 {/* Date separator */}
                 <div className="mb-4 flex items-center justify-center">
                   <span className="rounded-full bg-slate-800 px-3 py-1 text-[10px] font-medium text-slate-400">
-                    {formatDateSeparator(group.date)}
+                    {formatDateSeparator(group.date, t, dateLocale)}
                   </span>
                 </div>
                 {/* Messages */}

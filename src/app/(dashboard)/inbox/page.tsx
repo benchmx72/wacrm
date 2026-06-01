@@ -19,11 +19,13 @@ import { WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { hasPermission } from "@/lib/auth/roles";
+import { useLanguage } from "@/hooks/use-language";
 
 export default function InboxPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { profile } = useAuth();
+  const { t } = useLanguage();
   const canUseDemoTools = hasPermission(profile?.role, "use_demo_tools");
   const activeMessagingChannel = profile?.messaging_channel ?? "whatsapp";
   /**
@@ -359,7 +361,7 @@ export default function InboxPage() {
         body: JSON.stringify({ scenario }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error ?? "No se pudo crear demo");
+      if (!res.ok) throw new Error(data.error ?? t("inbox.list.failedCreateDemo"));
 
       const conversation = data.conversation as Conversation;
       setConversations((prev) => [conversation, ...prev]);
@@ -369,13 +371,13 @@ export default function InboxPage() {
       autoSelectedForDeepLinkRef.current = conversation.id;
       router.replace(`/inbox?c=${conversation.id}`, { scroll: false });
       setResyncToken((n) => n + 1);
-      toast.success("Demo inbox creado");
+      toast.success(t("inbox.list.demoCreated"));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "No se pudo crear demo");
+      toast.error(error instanceof Error ? error.message : t("inbox.list.failedCreateDemo"));
     } finally {
       setCreatingDemo(false);
     }
-  }, [creatingDemo, router]);
+  }, [creatingDemo, router, t]);
 
   const handleConversationsLoaded = useCallback(
     (loaded: Conversation[]) => {
@@ -546,7 +548,7 @@ export default function InboxPage() {
         <div className="flex shrink-0 items-center justify-center gap-2 border-b border-amber-500/20 bg-amber-500/10 px-4 py-2">
           <WifiOff className="h-4 w-4 text-amber-400" />
           <p className="text-xs text-amber-400">
-            {getDisconnectedBannerText(activeMessagingChannel)}
+            {getDisconnectedBannerText(activeMessagingChannel, t)}
           </p>
         </div>
       )}
@@ -606,10 +608,13 @@ export default function InboxPage() {
   );
 }
 
-function getDisconnectedBannerText(channel: MessagingChannel) {
+function getDisconnectedBannerText(
+  channel: MessagingChannel,
+  t: ReturnType<typeof useLanguage>["t"],
+) {
   if (channel === "telegram") {
-    return "Telegram no esta conectado. Ve a Configuracion para conectar tu bot.";
+    return t("inbox.banner.telegramDisconnected");
   }
 
-  return "WhatsApp no esta conectado. Ve a Configuracion para conectar tu cuenta.";
+  return t("inbox.banner.whatsappDisconnected");
 }
