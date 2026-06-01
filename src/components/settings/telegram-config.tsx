@@ -16,6 +16,7 @@ import {
 import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
+import { useLanguage } from '@/hooks/use-language';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -29,6 +30,7 @@ type ConnectionStatus = 'connected' | 'disconnected' | 'unknown';
 export function TelegramConfig() {
   const supabase = createClient();
   const { user, profile, loading: authLoading } = useAuth();
+  const { t } = useLanguage();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -48,6 +50,31 @@ export function TelegramConfig() {
     typeof window !== 'undefined'
       ? `${window.location.origin}/api/telegram/webhook`
       : '';
+
+  const handleTestConnection = useCallback(async (showToast = true) => {
+    try {
+      setTesting(true);
+      const res = await fetch('/api/telegram/config', { method: 'GET' });
+      const payload = await res.json();
+
+      if (payload.connected) {
+        setConnectionStatus('connected');
+        setStatusMessage('');
+        if (payload.bot?.username) setBotUsername(payload.bot.username);
+        if (showToast) toast.success(t('settings.telegram.connectionOk', { username: payload.bot?.username || 'Telegram' }));
+      } else {
+        setConnectionStatus('disconnected');
+        setStatusMessage(payload.message || '');
+        if (showToast) toast.error(payload.message || t('settings.telegram.connectionFailed'));
+      }
+    } catch (err) {
+      console.error('Telegram test error:', err);
+      setConnectionStatus('disconnected');
+      if (showToast) toast.error(t('settings.telegram.testFailed'));
+    } finally {
+      setTesting(false);
+    }
+  }, [t]);
 
   const fetchConfig = useCallback(async (userId: string) => {
     setLoading(true);
@@ -77,11 +104,11 @@ export function TelegramConfig() {
       await handleTestConnection(false);
     } catch (err) {
       console.error('Telegram config fetch error:', err);
-      toast.error('No se pudo cargar la configuracion de Telegram');
+      toast.error(t('settings.telegram.failedLoad'));
     } finally {
       setLoading(false);
     }
-  }, [supabase]);
+  }, [handleTestConnection, supabase, t]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -94,15 +121,15 @@ export function TelegramConfig() {
 
   async function handleSave() {
     if (!botUsername.trim()) {
-      toast.error('El usuario del bot es obligatorio');
+      toast.error(t('settings.telegram.botUsernameRequired'));
       return;
     }
     if (!hasConfig && (!botToken.trim() || !tokenEdited)) {
-      toast.error('El token del bot es obligatorio');
+      toast.error(t('settings.telegram.botTokenRequired'));
       return;
     }
     if (hasConfig && (!tokenEdited || botToken === MASKED_TOKEN)) {
-      toast.error('Vuelve a ingresar el token del bot para guardar cambios');
+      toast.error(t('settings.telegram.reenterToken'));
       return;
     }
 
@@ -120,53 +147,28 @@ export function TelegramConfig() {
       const data = await res.json();
 
       if (!res.ok) {
-        toast.error(data.error || 'No se pudo guardar la configuracion');
+        toast.error(data.error || t('settings.telegram.failedSave'));
         return;
       }
 
       toast.success(
         data.bot?.username
-          ? `Conectado a @${data.bot.username}`
-          : 'Configuracion de Telegram guardada',
+          ? t('settings.telegram.connectedTo', { username: data.bot.username })
+          : t('settings.telegram.saved'),
       );
       setHasConfig(true);
       setConnectionStatus('connected');
       if (user) await fetchConfig(profile?.account_owner_id ?? user.id);
     } catch (err) {
       console.error('Telegram save error:', err);
-      toast.error('No se pudo guardar la configuracion');
+      toast.error(t('settings.telegram.failedSave'));
     } finally {
       setSaving(false);
     }
   }
 
-  async function handleTestConnection(showToast = true) {
-    try {
-      setTesting(true);
-      const res = await fetch('/api/telegram/config', { method: 'GET' });
-      const payload = await res.json();
-
-      if (payload.connected) {
-        setConnectionStatus('connected');
-        setStatusMessage('');
-        if (payload.bot?.username) setBotUsername(payload.bot.username);
-        if (showToast) toast.success(`Conexion correcta con @${payload.bot?.username || 'Telegram'}`);
-      } else {
-        setConnectionStatus('disconnected');
-        setStatusMessage(payload.message || '');
-        if (showToast) toast.error(payload.message || 'La conexion con Telegram fallo');
-      }
-    } catch (err) {
-      console.error('Telegram test error:', err);
-      setConnectionStatus('disconnected');
-      if (showToast) toast.error('La prueba de conexion fallo. Revisa la red e intenta de nuevo.');
-    } finally {
-      setTesting(false);
-    }
-  }
-
   async function handleReset() {
-    if (!confirm('Esto eliminara la configuracion actual de Telegram. Continuar?')) {
+    if (!confirm(t('settings.telegram.resetConfirm'))) {
       return;
     }
 
@@ -176,11 +178,11 @@ export function TelegramConfig() {
       const data = await res.json();
 
       if (!res.ok) {
-        toast.error(data.error || 'No se pudo reiniciar la configuracion');
+        toast.error(data.error || t('settings.telegram.failedReset'));
         return;
       }
 
-      toast.success('Configuracion de Telegram eliminada');
+      toast.success(t('settings.telegram.resetDone'));
       setHasConfig(false);
       setBotToken('');
       setBotUsername('');
@@ -190,7 +192,7 @@ export function TelegramConfig() {
       setStatusMessage('');
     } catch (err) {
       console.error('Telegram reset error:', err);
-      toast.error('No se pudo reiniciar la configuracion');
+      toast.error(t('settings.telegram.failedReset'));
     } finally {
       setResetting(false);
     }
@@ -198,7 +200,7 @@ export function TelegramConfig() {
 
   function handleCopyWebhookUrl() {
     navigator.clipboard.writeText(webhookUrl);
-    toast.success('URL del webhook copiada');
+    toast.success(t('settings.telegram.webhookCopied'));
   }
 
   if (loading) {
@@ -220,13 +222,13 @@ export function TelegramConfig() {
               <XCircle className="size-4 text-red-500" />
             )}
             <AlertTitle className="text-white mb-0">
-              {connectionStatus === 'connected' ? 'Conectado' : 'No conectado'}
+              {connectionStatus === 'connected' ? t('settings.telegram.connected') : t('settings.telegram.disconnected')}
             </AlertTitle>
           </div>
           <AlertDescription className="text-slate-400">
             {connectionStatus === 'connected'
-              ? 'Tu bot de Telegram esta conectado y listo para recibir mensajes.'
-              : statusMessage || 'Configura el token de tu bot para conectar Telegram.'}
+              ? t('settings.telegram.connectedDescription')
+              : statusMessage || t('settings.telegram.disconnectedDescription')}
           </AlertDescription>
         </Alert>
 
@@ -234,15 +236,15 @@ export function TelegramConfig() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-white">
               <Send className="size-4 text-primary" />
-              Credenciales de Telegram
+              {t('settings.telegram.credentialsTitle')}
             </CardTitle>
             <CardDescription className="text-slate-400">
-              Usa el token generado por BotFather para conectar el bot del cliente.
+              {t('settings.telegram.credentialsDescription')}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label className="text-slate-300">Usuario del bot</Label>
+              <Label className="text-slate-300">{t('settings.telegram.botUsername')}</Label>
               <Input
                 placeholder="ej. sophia_cliente_bot"
                 value={botUsername}
@@ -252,11 +254,11 @@ export function TelegramConfig() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-slate-300">Token del bot</Label>
+              <Label className="text-slate-300">{t('settings.telegram.botToken')}</Label>
               <div className="relative">
                 <Input
                   type={showToken ? 'text' : 'password'}
-                  placeholder="Ingresa el token de BotFather"
+                  placeholder={t('settings.telegram.botTokenPlaceholder')}
                   value={botToken}
                   onChange={(e) => {
                     setBotToken(e.target.value);
@@ -280,15 +282,15 @@ export function TelegramConfig() {
               </div>
               {hasConfig && !tokenEdited && (
                 <p className="text-xs text-slate-500">
-                  El token esta oculto por seguridad. Vuelve a ingresarlo para actualizar la configuracion.
+                  {t('settings.telegram.maskedTokenHint')}
                 </p>
               )}
             </div>
 
             <div className="space-y-2">
-              <Label className="text-slate-300">Secreto del webhook</Label>
+              <Label className="text-slate-300">{t('settings.telegram.webhookSecret')}</Label>
               <Input
-                placeholder="Opcional: token secreto para validar Telegram"
+                placeholder={t('settings.telegram.webhookSecretPlaceholder')}
                 value={webhookSecret}
                 onChange={(e) => setWebhookSecret(e.target.value)}
                 className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500"
@@ -299,14 +301,14 @@ export function TelegramConfig() {
 
         <Card className="bg-slate-900 border-slate-700 ring-0 ring-transparent">
           <CardHeader>
-            <CardTitle className="text-white">Configuracion del webhook</CardTitle>
+            <CardTitle className="text-white">{t('settings.telegram.webhookTitle')}</CardTitle>
             <CardDescription className="text-slate-400">
-              Usa esta URL cuando registremos el webhook del bot en Telegram.
+              {t('settings.telegram.webhookDescription')}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              <Label className="text-slate-300">URL de callback del webhook</Label>
+              <Label className="text-slate-300">{t('settings.telegram.webhookUrl')}</Label>
               <div className="flex gap-2">
                 <Input
                   readOnly
@@ -335,10 +337,10 @@ export function TelegramConfig() {
             {saving ? (
               <>
                 <Loader2 className="size-4 animate-spin" />
-                Guardando...
+                {t('common.saving')}
               </>
             ) : (
-              'Guardar configuracion'
+              t('settings.telegram.saveConfig')
             )}
           </Button>
           <Button
@@ -350,12 +352,12 @@ export function TelegramConfig() {
             {testing ? (
               <>
                 <Loader2 className="size-4 animate-spin" />
-                Probando...
+                {t('settings.telegram.testing')}
               </>
             ) : (
               <>
                 <Zap className="size-4" />
-                Probar conexion
+                {t('settings.telegram.testConnection')}
               </>
             )}
           </Button>
@@ -369,12 +371,12 @@ export function TelegramConfig() {
               {resetting ? (
                 <>
                   <Loader2 className="size-4 animate-spin" />
-                  Reiniciando...
+                  {t('settings.telegram.resetting')}
                 </>
               ) : (
                 <>
                   <RotateCcw className="size-4" />
-                  Reiniciar configuracion
+                  {t('settings.telegram.resetConfig')}
                 </>
               )}
             </Button>
@@ -386,17 +388,17 @@ export function TelegramConfig() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-white text-base">
             <Bot className="size-4 text-primary" />
-            Alta rapida del bot
+            {t('settings.telegram.quickTitle')}
           </CardTitle>
           <CardDescription className="text-slate-400">
-            Telegram es mas simple que Meta: se crea un bot, se pega el token y se registra el webhook.
+            {t('settings.telegram.quickDescription')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 text-sm text-slate-400">
-          <p>1. Abre BotFather en Telegram y crea un bot nuevo.</p>
-          <p>2. Copia el token y el usuario del bot en esta pantalla.</p>
-          <p>3. Guarda y prueba la conexion.</p>
-          <p>4. En el siguiente paso conectaremos el webhook para recibir mensajes reales.</p>
+          <p>{t('settings.telegram.quickStep1')}</p>
+          <p>{t('settings.telegram.quickStep2')}</p>
+          <p>{t('settings.telegram.quickStep3')}</p>
+          <p>{t('settings.telegram.quickStep4')}</p>
         </CardContent>
       </Card>
     </div>

@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
 import { getClientAccountOwnerId } from '@/lib/auth/account';
 import { useAuth } from '@/hooks/use-auth';
+import { useLanguage } from '@/hooks/use-language';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -26,6 +27,7 @@ const CHANNEL_LABELS: Record<MessagingChannel, string> = {
 export function MessagingChannelPanel() {
   const supabase = createClient();
   const { user, profile, refreshProfile, signOut } = useAuth();
+  const { t } = useLanguage();
   const [channel, setChannel] = useState<MessagingChannel>('whatsapp');
   const [saving, setSaving] = useState(false);
 
@@ -44,7 +46,7 @@ export function MessagingChannelPanel() {
       } = await supabase.auth.getSession();
 
       if (sessionError || !session?.user) {
-        toast.error('Tu sesion expiro. Vuelve a iniciar sesion para guardar cambios.');
+        toast.error(t('settings.channel.sessionExpired'));
         await signOut();
         return;
       }
@@ -61,10 +63,10 @@ export function MessagingChannelPanel() {
       if (error) throw error;
 
       await refreshProfile();
-      toast.success(`Canal de mensajeria actualizado a ${CHANNEL_LABELS[channel]}`);
+      toast.success(t('settings.channel.saved', { channel: CHANNEL_LABELS[channel] }));
     } catch (err) {
       console.error('Messaging channel save error:', err);
-      toast.error('No se pudo actualizar el canal de mensajeria');
+      toast.error(t('settings.channel.failedUpdate'));
     } finally {
       setSaving(false);
     }
@@ -75,15 +77,15 @@ export function MessagingChannelPanel() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-white">
           <RadioTower className="size-4 text-primary" />
-          Canal del cliente
+          {t('settings.channel.title')}
         </CardTitle>
         <CardDescription className="text-slate-400">
-          Define que plataforma de mensajeria vera y configurara esta cuenta.
+          {t('settings.channel.description')}
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-4 sm:grid-cols-[minmax(240px,360px)_auto] sm:items-end">
         <div className="space-y-2">
-          <Label className="text-slate-300">Plataforma activa</Label>
+          <Label className="text-slate-300">{t('settings.channel.activePlatform')}</Label>
           <Select
             value={channel}
             onValueChange={(value) => setChannel(value as MessagingChannel)}
@@ -111,10 +113,10 @@ export function MessagingChannelPanel() {
           {saving ? (
             <>
               <Loader2 className="size-4 animate-spin" />
-              Guardando...
+              {t('common.saving')}
             </>
           ) : (
-            'Guardar canal'
+            t('settings.channel.save')
           )}
         </Button>
       </CardContent>

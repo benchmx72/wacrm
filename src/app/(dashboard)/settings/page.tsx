@@ -98,7 +98,7 @@ export default function SettingsPage() {
       <div>
         <h1 className="text-2xl font-bold text-white">{t('settings.title')}</h1>
         <p className="text-sm text-slate-400 mt-1">
-          Administra tu perfil, canal de mensajeria, agentes y equipo.
+          {t('settings.description')}
         </p>
       </div>
 
@@ -117,7 +117,7 @@ export default function SettingsPage() {
               className="data-active:bg-slate-800 data-active:text-primary text-slate-400"
             >
               <RadioTower className="size-4" />
-              Canal
+              {t('settings.tabs.channel')}
             </TabsTrigger>
           )}
           {hasPermission(profile?.role, 'manage_whatsapp') && (
@@ -135,7 +135,7 @@ export default function SettingsPage() {
                 className="data-active:bg-slate-800 data-active:text-primary text-slate-400"
               >
                 <Send className="size-4" />
-                Config. Telegram
+                {t('settings.tabs.telegram')}
               </TabsTrigger>
             )
           )}

@@ -4,8 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { MailPlus, Power, RefreshCw, Shield, Users } from "lucide-react";
 import { toast } from "sonner";
 import type { Profile } from "@/types";
-import { normalizeRole, ROLE_LABELS, type AppRole } from "@/lib/auth/roles";
+import { normalizeRole, type AppRole } from "@/lib/auth/roles";
 import { useAuth } from "@/hooks/use-auth";
+import { useLanguage } from "@/hooks/use-language";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -39,14 +40,11 @@ type TeamUser = Pick<
   | "created_at"
 >;
 
-const roleOptions: Array<{ value: AppRole; label: string }> = [
-  { value: "client_admin", label: ROLE_LABELS.client_admin },
-  { value: "staff", label: ROLE_LABELS.staff },
-  { value: "viewer", label: ROLE_LABELS.viewer },
-];
+const roleOptions: AppRole[] = ["client_admin", "staff", "viewer"];
 
 export function TeamPanel() {
   const { user: currentUser, profile } = useAuth();
+  const { locale, t } = useLanguage();
   const [users, setUsers] = useState<TeamUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -64,6 +62,19 @@ export function TeamPanel() {
     return [];
   }, [profile?.role]);
 
+  function roleLabel(value: AppRole) {
+    switch (value) {
+      case "super_admin":
+        return t("settings.team.roles.super_admin");
+      case "client_admin":
+        return t("settings.team.roles.client_admin");
+      case "staff":
+        return t("settings.team.roles.staff");
+      case "viewer":
+        return t("settings.team.roles.viewer");
+    }
+  }
+
   const loadUsers = useCallback(async () => {
     setLoading(true);
     const res = await fetch("/api/team/users");
@@ -71,10 +82,10 @@ export function TeamPanel() {
     if (res.ok) {
       setUsers((data.users ?? []) as TeamUser[]);
     } else {
-      toast.error(data.error ?? "No se pudo cargar el equipo");
+      toast.error(data.error ?? t("settings.team.failedLoad"));
     }
     setLoading(false);
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -100,9 +111,9 @@ export function TeamPanel() {
       setEmail("");
       setFullName("");
       setRole("staff");
-      toast.success("Invitacion enviada");
+      toast.success(t("settings.team.invitationSent"));
     } else {
-      toast.error(data.error ?? "No se pudo enviar la invitacion");
+      toast.error(data.error ?? t("settings.team.failedInvite"));
     }
     setSending(false);
   }
@@ -128,9 +139,9 @@ export function TeamPanel() {
           teamUser.user_id === targetUserId ? (data.user as TeamUser) : teamUser,
         ),
       );
-      toast.success("Usuario actualizado");
+      toast.success(t("settings.team.userUpdated"));
     } else {
-      toast.error(data.error ?? "No se pudo actualizar el usuario");
+      toast.error(data.error ?? t("settings.team.failedUpdate"));
     }
     setUpdatingUserId(null);
   }
@@ -150,12 +161,12 @@ export function TeamPanel() {
     if (res.ok) {
       if (typeof data.invitation_link === "string") {
         await navigator.clipboard?.writeText(data.invitation_link).catch(() => {});
-        toast.success("Link de invitacion copiado");
+        toast.success(t("settings.team.invitationLinkCopied"));
       } else {
-        toast.success(data.message ?? "Invitacion reenviada");
+        toast.success(data.message ?? t("settings.team.invitationResent"));
       }
     } else {
-      toast.error(data.error ?? "No se pudo reenviar la invitacion");
+      toast.error(data.error ?? t("settings.team.failedResend"));
     }
     setResendingUserId(null);
   }
@@ -166,16 +177,16 @@ export function TeamPanel() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-white">
             <MailPlus className="size-4 text-primary" />
-            Invitar usuario
+            {t("settings.team.inviteTitle")}
           </CardTitle>
           <CardDescription>
-            El usuario recibira un correo para entrar y definir su acceso.
+            {t("settings.team.inviteDescription")}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form className="space-y-4" onSubmit={inviteUser}>
             <div className="space-y-2">
-              <Label htmlFor="team-email">Correo</Label>
+              <Label htmlFor="team-email">{t("settings.team.email")}</Label>
               <Input
                 id="team-email"
                 type="email"
@@ -187,17 +198,17 @@ export function TeamPanel() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="team-name">Nombre</Label>
+              <Label htmlFor="team-name">{t("settings.team.name")}</Label>
               <Input
                 id="team-name"
                 value={fullName}
                 onChange={(event) => setFullName(event.target.value)}
-                placeholder="Nombre del usuario"
+                placeholder={t("settings.team.namePlaceholder")}
                 className="border-slate-700 bg-slate-950"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="team-role">Rol</Label>
+              <Label htmlFor="team-role">{t("settings.team.role")}</Label>
               <select
                 id="team-role"
                 value={role}
@@ -205,8 +216,8 @@ export function TeamPanel() {
                 className="h-8 w-full rounded-lg border border-slate-700 bg-slate-950 px-2.5 text-sm text-white outline-none focus-visible:border-primary"
               >
                 {allowedRoles.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
+                  <option key={option} value={option}>
+                    {roleLabel(option)}
                   </option>
                 ))}
               </select>
@@ -217,7 +228,7 @@ export function TeamPanel() {
               className="w-full"
             >
               <MailPlus className="size-4" />
-              {sending ? "Enviando..." : "Enviar invitacion"}
+              {sending ? t("settings.team.sending") : t("settings.team.sendInvitation")}
             </Button>
           </form>
         </CardContent>
@@ -229,10 +240,10 @@ export function TeamPanel() {
             <div>
               <CardTitle className="flex items-center gap-2 text-white">
                 <Users className="size-4 text-primary" />
-                Equipo
+                {t("settings.team.teamTitle")}
               </CardTitle>
               <CardDescription>
-                Usuarios con acceso al CRM y su rol operativo.
+                {t("settings.team.teamDescription")}
               </CardDescription>
             </div>
             <Button
@@ -244,31 +255,31 @@ export function TeamPanel() {
               className="border-slate-700"
             >
               <RefreshCw className="size-4" />
-              Actualizar
+              {t("settings.team.refresh")}
             </Button>
           </div>
         </CardHeader>
         <CardContent className="p-0">
           {loading ? (
             <div className="p-8 text-center text-sm text-slate-400">
-              Cargando equipo...
+              {t("settings.team.loading")}
             </div>
           ) : users.length === 0 ? (
             <div className="flex flex-col items-center justify-center p-10 text-center">
               <Shield className="size-10 text-slate-600" />
               <p className="mt-3 text-sm text-slate-400">
-                Aun no hay usuarios en este equipo.
+                {t("settings.team.empty")}
               </p>
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow className="border-slate-800 hover:bg-transparent">
-                  <TableHead className="px-4 text-slate-400">Usuario</TableHead>
-                  <TableHead className="text-slate-400">Rol</TableHead>
-                  <TableHead className="text-slate-400">Estado</TableHead>
-                  <TableHead className="text-slate-400">Acciones</TableHead>
-                  <TableHead className="text-slate-400">Creado</TableHead>
+                  <TableHead className="px-4 text-slate-400">{t("settings.team.user")}</TableHead>
+                  <TableHead className="text-slate-400">{t("settings.team.role")}</TableHead>
+                  <TableHead className="text-slate-400">{t("settings.team.status")}</TableHead>
+                  <TableHead className="text-slate-400">{t("settings.team.actions")}</TableHead>
+                  <TableHead className="text-slate-400">{t("settings.team.created")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -289,7 +300,7 @@ export function TeamPanel() {
                       <TableCell className="px-4">
                         <div className="min-w-0">
                           <p className="truncate font-medium text-white">
-                            {user.full_name || "Sin nombre"}
+                            {user.full_name || t("settings.team.unnamed")}
                           </p>
                           <p className="truncate text-xs text-slate-400">
                             {user.email}
@@ -298,7 +309,7 @@ export function TeamPanel() {
                       </TableCell>
                       <TableCell className="min-w-[160px] text-slate-300">
                         {userRole === "super_admin" ? (
-                          ROLE_LABELS.super_admin
+                          roleLabel("super_admin")
                         ) : (
                           <select
                             value={userRole}
@@ -311,8 +322,8 @@ export function TeamPanel() {
                             className="h-8 w-full rounded-md border border-slate-700 bg-slate-950 px-2 text-sm text-white outline-none focus-visible:border-primary disabled:cursor-not-allowed disabled:opacity-60"
                           >
                             {allowedRoles.map((option) => (
-                              <option key={option.value} value={option.value}>
-                                {option.label}
+                              <option key={option} value={option}>
+                                {roleLabel(option)}
                               </option>
                             ))}
                           </select>
@@ -324,10 +335,10 @@ export function TeamPanel() {
                           className="border-slate-700 text-slate-200"
                         >
                           {userStatus === "invited"
-                            ? "Invitado"
+                            ? t("settings.team.invited")
                             : userStatus === "disabled"
-                              ? "Desactivado"
-                              : "Activo"}
+                              ? t("settings.team.disabled")
+                              : t("common.active")}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -342,7 +353,7 @@ export function TeamPanel() {
                               className="border-slate-700"
                             >
                               <MailPlus className="size-4" />
-                              {rowResending ? "Reenviando..." : "Reenviar"}
+                              {rowResending ? t("settings.team.resending") : t("settings.team.resend")}
                             </Button>
                           ) : null}
                           <Button
@@ -360,15 +371,15 @@ export function TeamPanel() {
                           >
                             <Power className="size-4" />
                             {rowUpdating
-                              ? "Guardando..."
+                              ? t("common.saving")
                               : userStatus === "disabled"
-                                ? "Reactivar"
-                                : "Desactivar"}
+                                ? t("settings.team.reactivate")
+                                : t("common.deactivate")}
                           </Button>
                         </div>
                       </TableCell>
                       <TableCell className="text-xs text-slate-400">
-                        {new Date(user.created_at).toLocaleDateString("es-MX")}
+                        {new Date(user.created_at).toLocaleDateString(locale)}
                       </TableCell>
                     </TableRow>
                   );

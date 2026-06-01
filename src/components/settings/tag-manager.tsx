@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { Plus, X, Loader2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
+import { useLanguage } from '@/hooks/use-language';
 import { getClientAccountOwnerId } from '@/lib/auth/account';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,6 +35,7 @@ const PRESET_COLORS = [
 export function TagManager() {
   const supabase = createClient();
   const { user, loading: authLoading } = useAuth();
+  const { t } = useLanguage();
 
   const [loading, setLoading] = useState(true);
   const [tags, setTags] = useState<Tag[]>([]);
@@ -68,7 +70,7 @@ export function TagManager() {
       setTags(data || []);
     } catch (err) {
       console.error('Failed to fetch tags:', err);
-      toast.error('No se pudieron cargar las etiquetas');
+      toast.error(t('settings.tags.failedLoad'));
     } finally {
       setLoading(false);
     }
@@ -76,14 +78,14 @@ export function TagManager() {
 
   async function handleCreate() {
     if (!newTagName.trim()) {
-      toast.error('El nombre de la etiqueta es obligatorio');
+      toast.error(t('settings.tags.nameRequired'));
       return;
     }
 
     try {
       setSaving(true);
       if (!user) {
-        toast.error('No autenticado');
+        toast.error(t('settings.tags.notAuthenticated'));
         return;
       }
       const accountOwnerId = await getClientAccountOwnerId(supabase, user.id);
@@ -98,14 +100,14 @@ export function TagManager() {
 
       if (error) throw error;
 
-      toast.success('Etiqueta creada correctamente');
+      toast.success(t('settings.tags.created'));
       setDialogOpen(false);
       setNewTagName('');
       setSelectedColor(PRESET_COLORS[3].value);
       if (user) await fetchTags();
     } catch (err) {
       console.error('Create error:', err);
-      toast.error('No se pudo crear la etiqueta');
+      toast.error(t('settings.tags.failedCreate'));
     } finally {
       setSaving(false);
     }
@@ -128,13 +130,13 @@ export function TagManager() {
 
       if (error) throw error;
 
-      toast.success('Etiqueta eliminada');
+      toast.success(t('settings.tags.deleted'));
       setTags((prev) => prev.filter((t) => t.id !== tagToDelete.id));
       setDeleteDialogOpen(false);
       setTagToDelete(null);
     } catch (err) {
       console.error('Delete error:', err);
-      toast.error('No se pudo eliminar la etiqueta');
+      toast.error(t('settings.tags.failedDelete'));
     } finally {
       setDeleting(false);
     }
@@ -152,8 +154,8 @@ export function TagManager() {
     <div className="space-y-4 mt-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-white">Etiquetas</h2>
-          <p className="text-sm text-slate-400">Organiza tus contactos con etiquetas de color.</p>
+          <h2 className="text-lg font-semibold text-white">{t('settings.tags.title')}</h2>
+          <p className="text-sm text-slate-400">{t('settings.tags.description')}</p>
         </div>
         <Button
           onClick={() => {
@@ -164,15 +166,15 @@ export function TagManager() {
           className="bg-primary hover:bg-primary/90 text-primary-foreground"
         >
           <Plus className="size-4" />
-          Nueva etiqueta
+          {t('settings.tags.newTag')}
         </Button>
       </div>
 
       {tags.length === 0 ? (
         <Card className="bg-slate-900 border-slate-700 ring-0 ring-transparent">
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-            <p className="text-slate-400 text-sm">Aun no hay etiquetas.</p>
-            <p className="text-slate-500 text-xs mt-1">Crea etiquetas para clasificar tus contactos.</p>
+            <p className="text-slate-400 text-sm">{t('settings.tags.emptyTitle')}</p>
+            <p className="text-slate-500 text-xs mt-1">{t('settings.tags.emptyHint')}</p>
           </CardContent>
         </Card>
       ) : (
@@ -211,17 +213,17 @@ export function TagManager() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="bg-slate-900 border-slate-700 sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle className="text-white">Nueva etiqueta</DialogTitle>
+            <DialogTitle className="text-white">{t('settings.tags.newTag')}</DialogTitle>
             <DialogDescription className="text-slate-400">
-              Crea una etiqueta con nombre y color.
+              {t('settings.tags.dialogDescription')}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label className="text-slate-300">Nombre de la etiqueta</Label>
+              <Label className="text-slate-300">{t('settings.tags.name')}</Label>
               <Input
-                placeholder="ej. Cliente VIP"
+                placeholder={t('settings.tags.namePlaceholder')}
                 value={newTagName}
                 onChange={(e) => setNewTagName(e.target.value)}
                 className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500"
@@ -232,7 +234,7 @@ export function TagManager() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-slate-300">Color</Label>
+              <Label className="text-slate-300">{t('settings.tags.color')}</Label>
               <div className="flex gap-2 flex-wrap">
                 {PRESET_COLORS.map((color) => (
                   <button
@@ -251,7 +253,7 @@ export function TagManager() {
 
             {/* Preview */}
             <div className="space-y-2">
-              <Label className="text-slate-300">Vista previa</Label>
+              <Label className="text-slate-300">{t('settings.tags.preview')}</Label>
               <div>
                 <span
                   className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium"
@@ -265,7 +267,7 @@ export function TagManager() {
                     className="size-2 rounded-full"
                     style={{ backgroundColor: selectedColor }}
                   />
-                  {newTagName || 'Nombre de etiqueta'}
+                  {newTagName || t('settings.tags.previewName')}
                 </span>
               </div>
             </div>
@@ -277,7 +279,7 @@ export function TagManager() {
               onClick={() => setDialogOpen(false)}
               className="border-slate-700 text-slate-300 hover:bg-slate-800"
             >
-              Cancelar
+              {t('common.cancel')}
             </Button>
             <Button
               onClick={handleCreate}
@@ -287,10 +289,10 @@ export function TagManager() {
               {saving ? (
                 <>
                   <Loader2 className="size-4 animate-spin" />
-                  Creando...
+                  {t('settings.tags.creating')}
                 </>
               ) : (
-                'Crear etiqueta'
+                t('settings.tags.createTag')
               )}
             </Button>
           </DialogFooter>
@@ -301,10 +303,9 @@ export function TagManager() {
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent className="bg-slate-900 border-slate-700 sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle className="text-white">Eliminar etiqueta</DialogTitle>
+            <DialogTitle className="text-white">{t('settings.tags.deleteTitle')}</DialogTitle>
             <DialogDescription className="text-slate-400">
-              Seguro que quieres eliminar la etiqueta &quot;{tagToDelete?.name}&quot;? Esto la quitara
-              de todos los contactos. Esta accion no se puede deshacer.
+              {t('settings.tags.deleteDescription', { name: tagToDelete?.name ?? '' })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="bg-slate-900 border-slate-700">
@@ -313,7 +314,7 @@ export function TagManager() {
               onClick={() => setDeleteDialogOpen(false)}
               className="border-slate-700 text-slate-300 hover:bg-slate-800"
             >
-              Cancelar
+              {t('common.cancel')}
             </Button>
             <Button
               onClick={handleDelete}
@@ -323,10 +324,10 @@ export function TagManager() {
               {deleting ? (
                 <>
                   <Loader2 className="size-4 animate-spin" />
-                  Eliminando...
+                  {t('settings.tags.deleting')}
                 </>
               ) : (
-                'Eliminar etiqueta'
+                t('settings.tags.deleteTag')
               )}
             </Button>
           </DialogFooter>

@@ -11,6 +11,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import type { Appointment } from "@/types";
 import { useAuth } from "@/hooks/use-auth";
+import { useLanguage } from "@/hooks/use-language";
 import { hasPermission } from "@/lib/auth/roles";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,20 +41,6 @@ type EditForm = {
   timezone: string;
   location: string;
   notes: string;
-};
-
-const statusLabels: Record<Appointment["status"], string> = {
-  proposed: "Propuestas",
-  confirmed: "Confirmadas",
-  cancelled: "Canceladas",
-  completed: "Completadas",
-};
-
-const singleStatusLabels: Record<Appointment["status"], string> = {
-  proposed: "Propuesta",
-  confirmed: "Confirmada",
-  cancelled: "Cancelada",
-  completed: "Completada",
 };
 
 const statusTone: Record<Appointment["status"], string> = {
@@ -92,6 +79,7 @@ function formFromAppointment(appointment: Appointment): EditForm {
 export default function AppointmentsPage() {
   const supabase = createClient();
   const { profile } = useAuth();
+  const { locale, t } = useLanguage();
   const canManageAppointments = hasPermission(
     profile?.role,
     "manage_appointments",
@@ -134,6 +122,20 @@ export default function AppointmentsPage() {
     filter === "all"
       ? appointments
       : appointments.filter((appointment) => appointment.status === filter);
+
+  const statusLabels: Record<Appointment["status"], string> = {
+    proposed: t("appointments.statuses.proposedPlural"),
+    confirmed: t("appointments.statuses.confirmedPlural"),
+    cancelled: t("appointments.statuses.cancelledPlural"),
+    completed: t("appointments.statuses.completedPlural"),
+  };
+
+  const singleStatusLabels: Record<Appointment["status"], string> = {
+    proposed: t("appointments.statuses.proposed"),
+    confirmed: t("appointments.statuses.confirmed"),
+    cancelled: t("appointments.statuses.cancelled"),
+    completed: t("appointments.statuses.completed"),
+  };
 
   async function updateStatus(id: string, status: Appointment["status"]) {
     if (!canManageAppointments) return;
@@ -198,10 +200,9 @@ export default function AppointmentsPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-bold text-white">Citas</h1>
+        <h1 className="text-2xl font-bold text-white">{t("appointments.title")}</h1>
         <p className="mt-1 text-sm text-slate-400">
-          Revisa citas propuestas, confirma seguimientos y ajusta horarios cuando
-          el cliente o el staff lo necesiten.
+          {t("appointments.description")}
         </p>
       </div>
 
@@ -233,7 +234,7 @@ export default function AppointmentsPage() {
           variant={filter === "all" ? "default" : "outline"}
           onClick={() => setFilter("all")}
         >
-          Todas
+          {t("appointments.filters.all")}
         </Button>
         {(["proposed", "confirmed", "completed", "cancelled"] as const).map((status) => (
           <Button
@@ -249,13 +250,13 @@ export default function AppointmentsPage() {
       <div className="rounded-xl border border-slate-800 bg-slate-900">
         {loading ? (
           <div className="p-10 text-center text-sm text-slate-400">
-            Cargando citas...
+            {t("appointments.loading")}
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center p-12 text-center">
             <CalendarDays className="size-10 text-slate-600" />
             <p className="mt-3 text-sm text-slate-400">
-              No hay citas en esta vista.
+              {t("appointments.empty")}
             </p>
           </div>
         ) : (
@@ -282,16 +283,16 @@ export default function AppointmentsPage() {
                   <p className="mt-1 text-xs text-slate-400">
                     {appointment.contact?.name ??
                       appointment.contact?.phone ??
-                      "Contacto sin nombre"}
+                      t("appointments.unnamedContact")}
                     {appointment.deal?.title ? ` - ${appointment.deal.title}` : ""}
                   </p>
                   <p className="mt-1 text-xs text-slate-500">
-                    Horario preferido: {appointment.preferred_time ?? "Por confirmar"}
+                    {t("appointments.preferredTime")}: {appointment.preferred_time ?? t("appointments.toConfirm")}
                   </p>
                   {appointment.scheduled_start && (
                     <p className="mt-1 text-xs text-slate-500">
-                      Agendada:{" "}
-                      {new Date(appointment.scheduled_start).toLocaleString("es-MX", {
+                      {t("appointments.scheduled")}:{" "}
+                      {new Date(appointment.scheduled_start).toLocaleString(locale, {
                         dateStyle: "medium",
                         timeStyle: "short",
                       })}
@@ -299,7 +300,7 @@ export default function AppointmentsPage() {
                   )}
                   {appointment.location && (
                     <p className="mt-1 text-xs text-slate-500">
-                      Lugar/modalidad: {appointment.location}
+                      {t("appointments.location")}: {appointment.location}
                     </p>
                   )}
                   {appointment.notes && (
@@ -317,7 +318,7 @@ export default function AppointmentsPage() {
                       className="border-slate-700"
                     >
                       <Pencil className="size-4" />
-                      Editar
+                      {t("common.edit")}
                     </Button>
                     <Button
                       size="sm"
@@ -327,7 +328,7 @@ export default function AppointmentsPage() {
                       className="border-slate-700"
                     >
                       <CheckCircle2 className="size-4" />
-                      Confirmar
+                      {t("appointments.actions.confirm")}
                     </Button>
                     <Button
                       size="sm"
@@ -337,7 +338,7 @@ export default function AppointmentsPage() {
                       className="border-slate-700"
                     >
                       <ClipboardCheck className="size-4" />
-                      Completar
+                      {t("appointments.actions.complete")}
                     </Button>
                     <Button
                       size="sm"
@@ -347,7 +348,7 @@ export default function AppointmentsPage() {
                       className="border-red-500/40 text-red-300 hover:bg-red-500/10 hover:text-red-200"
                     >
                       <CircleSlash className="size-4" />
-                      Cancelar
+                      {t("appointments.actions.cancel")}
                     </Button>
                   </div>
                 )}
@@ -368,13 +369,13 @@ export default function AppointmentsPage() {
       >
         <DialogContent className="max-h-[90vh] overflow-y-auto border-slate-800 bg-slate-950 text-white sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Editar cita</DialogTitle>
+            <DialogTitle>{t("appointments.editDialog.title")}</DialogTitle>
           </DialogHeader>
 
           {editForm && (
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2 sm:col-span-2">
-                <Label htmlFor="appointment-title">Titulo</Label>
+                <Label htmlFor="appointment-title">{t("appointments.editDialog.appointmentTitle")}</Label>
                 <Input
                   id="appointment-title"
                   value={editForm.title}
@@ -384,20 +385,20 @@ export default function AppointmentsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="appointment-type">Tipo</Label>
+                <Label htmlFor="appointment-type">{t("appointments.editDialog.type")}</Label>
                 <Input
                   id="appointment-type"
                   value={editForm.appointment_type}
                   onChange={(event) =>
                     updateEditForm("appointment_type", event.target.value)
                   }
-                  placeholder="Consulta, seguimiento, evaluacion..."
+                  placeholder={t("appointments.editDialog.typePlaceholder")}
                   className="border-slate-700 bg-slate-900"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="appointment-status">Estado</Label>
+                <Label htmlFor="appointment-status">{t("appointments.editDialog.status")}</Label>
                 <select
                   id="appointment-status"
                   value={editForm.status}
@@ -409,28 +410,28 @@ export default function AppointmentsPage() {
                   }
                   className="h-8 w-full rounded-lg border border-slate-700 bg-slate-900 px-2.5 text-sm text-white outline-none focus-visible:border-primary"
                 >
-                  <option value="proposed">Propuesta</option>
-                  <option value="confirmed">Confirmada</option>
-                  <option value="completed">Completada</option>
-                  <option value="cancelled">Cancelada</option>
+                  <option value="proposed">{singleStatusLabels.proposed}</option>
+                  <option value="confirmed">{singleStatusLabels.confirmed}</option>
+                  <option value="completed">{singleStatusLabels.completed}</option>
+                  <option value="cancelled">{singleStatusLabels.cancelled}</option>
                 </select>
               </div>
 
               <div className="space-y-2 sm:col-span-2">
-                <Label htmlFor="preferred-time">Horario preferido</Label>
+                <Label htmlFor="preferred-time">{t("appointments.preferredTime")}</Label>
                 <Input
                   id="preferred-time"
                   value={editForm.preferred_time}
                   onChange={(event) =>
                     updateEditForm("preferred_time", event.target.value)
                   }
-                  placeholder="Ej. Esta semana por la tarde"
+                  placeholder={t("appointments.editDialog.preferredTimePlaceholder")}
                   className="border-slate-700 bg-slate-900"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="scheduled-start">Inicio agendado</Label>
+                <Label htmlFor="scheduled-start">{t("appointments.editDialog.scheduledStart")}</Label>
                 <Input
                   id="scheduled-start"
                   type="datetime-local"
@@ -443,7 +444,7 @@ export default function AppointmentsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="scheduled-end">Fin agendado</Label>
+                <Label htmlFor="scheduled-end">{t("appointments.editDialog.scheduledEnd")}</Label>
                 <Input
                   id="scheduled-end"
                   type="datetime-local"
@@ -456,7 +457,7 @@ export default function AppointmentsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="timezone">Zona horaria</Label>
+                <Label htmlFor="timezone">{t("appointments.editDialog.timezone")}</Label>
                 <Input
                   id="timezone"
                   value={editForm.timezone}
@@ -467,18 +468,18 @@ export default function AppointmentsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="location">Lugar o modalidad</Label>
+                <Label htmlFor="location">{t("appointments.location")}</Label>
                 <Input
                   id="location"
                   value={editForm.location}
                   onChange={(event) => updateEditForm("location", event.target.value)}
-                  placeholder="Zoom, consultorio, llamada..."
+                  placeholder={t("appointments.editDialog.locationPlaceholder")}
                   className="border-slate-700 bg-slate-900"
                 />
               </div>
 
               <div className="space-y-2 sm:col-span-2">
-                <Label htmlFor="appointment-notes">Notas internas</Label>
+                <Label htmlFor="appointment-notes">{t("appointments.editDialog.notes")}</Label>
                 <Textarea
                   id="appointment-notes"
                   value={editForm.notes}
@@ -498,10 +499,10 @@ export default function AppointmentsPage() {
                 setEditForm(null);
               }}
             >
-              Cerrar
+              {t("common.cancel")}
             </Button>
             <Button onClick={saveEdit} disabled={savingEdit || !editForm?.title.trim()}>
-              Guardar cambios
+              {t("common.saveChanges")}
             </Button>
           </DialogFooter>
         </DialogContent>
