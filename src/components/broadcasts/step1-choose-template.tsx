@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import { useLanguage } from '@/hooks/use-language';
 import { MessageTemplate } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Loader2, FileText, ArrowRight, Settings } from 'lucide-react';
@@ -21,6 +22,7 @@ interface Step1Props {
 }
 
 export function Step1ChooseTemplate({ selectedTemplate, onSelect, onNext, onBack }: Step1Props) {
+  const { t } = useLanguage();
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -37,14 +39,14 @@ export function Step1ChooseTemplate({ selectedTemplate, onSelect, onNext, onBack
         if (fetchError) throw fetchError;
         setTemplates(data ?? []);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load templates');
+        setError(err instanceof Error ? err.message : t('broadcasts.wizard.failedTemplates'));
       } finally {
         setLoading(false);
       }
     }
 
     fetchTemplates();
-  }, []);
+  }, [t]);
 
   if (loading) {
     return (
@@ -69,45 +71,46 @@ export function Step1ChooseTemplate({ selectedTemplate, onSelect, onNext, onBack
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-white">Selecciona una plantilla</h2>
+        <h2 className="text-lg font-semibold text-white">
+          {t('broadcasts.wizard.chooseTemplateTitle')}
+        </h2>
         <p className="mt-1 text-sm text-slate-400">
-          Elige una plantilla aprobada por Meta para este disparo.
+          {t('broadcasts.wizard.chooseTemplateDescription')}
         </p>
       </div>
 
       {templates.length === 0 ? (
         <div className="flex min-h-52 flex-col items-center justify-center rounded-xl border border-slate-800 bg-slate-900/50 p-6 text-center">
           <FileText className="mb-2 h-8 w-8 text-slate-600" />
-          <p className="text-sm font-medium text-white">No hay plantillas disponibles.</p>
+          <p className="text-sm font-medium text-white">
+            {t('broadcasts.wizard.noTemplates')}
+          </p>
           <p className="mt-1 max-w-md text-xs text-slate-500">
-            Para WhatsApp, primero sincroniza plantillas aprobadas desde Meta o
-            crea una plantilla en WhatsApp Manager y despues sincronizala.
+            {t('broadcasts.wizard.noTemplatesHint')}
           </p>
           <Link
             href="/settings?tab=templates"
             className="mt-4 inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-primary px-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
             <Settings className="h-4 w-4" />
-            Ir a Plantillas
+            {t('broadcasts.wizard.goToTemplates')}
           </Link>
         </div>
       ) : approvedTemplates.length === 0 ? (
         <div className="flex min-h-52 flex-col items-center justify-center rounded-xl border border-slate-800 bg-slate-900/50 p-6 text-center">
           <FileText className="mb-2 h-8 w-8 text-slate-600" />
           <p className="text-sm font-medium text-white">
-            No hay plantillas aprobadas.
+            {t('broadcasts.wizard.noApprovedTemplates')}
           </p>
           <p className="mt-1 max-w-md text-xs text-slate-500">
-            Los disparos solo pueden enviarse con plantillas aprobadas por
-            Meta. Revisa Configuracion &gt; Plantillas y usa Sincronizar desde
-            Meta para traer la lista aprobada.
+            {t('broadcasts.wizard.noApprovedTemplatesHint')}
           </p>
           <Link
             href="/settings?tab=templates"
             className="mt-4 inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-primary px-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
             <Settings className="h-4 w-4" />
-            Revisar plantillas
+            {t('broadcasts.wizard.reviewTemplates')}
           </Link>
         </div>
       ) : (
@@ -152,14 +155,14 @@ export function Step1ChooseTemplate({ selectedTemplate, onSelect, onNext, onBack
 
       <div className="flex items-center justify-between border-t border-slate-800 pt-4">
         <Button variant="outline" onClick={onBack} className="border-slate-700 text-slate-300">
-          Volver
+          {t('common.back')}
         </Button>
         <Button
           onClick={onNext}
           disabled={!selectedTemplate}
           className="bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
         >
-          Siguiente
+          {t('common.next')}
           <ArrowRight className="h-4 w-4" />
         </Button>
       </div>

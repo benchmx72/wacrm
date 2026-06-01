@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/client';
 import { getClientAccountOwnerId } from '@/lib/auth/account';
+import { useLanguage } from '@/hooks/use-language';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Contact, Tag } from '@/types';
@@ -12,6 +13,7 @@ import { ArrowLeft, Loader2, Send, Tags, Users } from 'lucide-react';
 
 export function TelegramBroadcastForm() {
   const router = useRouter();
+  const { locale, t } = useLanguage();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [contactTagIds, setContactTagIds] = useState<Record<string, string[]>>({});
@@ -61,7 +63,7 @@ export function TelegramBroadcastForm() {
         toast.error(
           err instanceof Error
             ? err.message
-            : 'No se pudieron cargar contactos de Telegram.',
+            : t('broadcasts.telegram.failedLoadContacts'),
         );
       } finally {
         setLoading(false);
@@ -69,7 +71,7 @@ export function TelegramBroadcastForm() {
     }
 
     fetchTelegramContacts();
-  }, []);
+  }, [t]);
 
   const filteredContacts = useMemo(() => {
     if (selectedTagIds.length === 0) return contacts;
@@ -102,7 +104,7 @@ export function TelegramBroadcastForm() {
         data: { session },
       } = await supabase.auth.getSession();
       const user = session?.user;
-      if (!user) throw new Error('No hay sesion activa.');
+      if (!user) throw new Error(t('broadcasts.telegram.noSession'));
       const accountOwnerId = await getClientAccountOwnerId(supabase, user.id);
 
       const { data: broadcast, error: broadcastError } = await supabase
@@ -110,7 +112,7 @@ export function TelegramBroadcastForm() {
         .insert({
           user_id: accountOwnerId,
           name: name.trim(),
-          template_name: 'Telegram: mensaje libre',
+          template_name: t('broadcasts.telegram.freeTextTemplate'),
           template_language: 'telegram',
           template_variables: {
             message_text: message.trim(),
@@ -132,7 +134,9 @@ export function TelegramBroadcastForm() {
 
       if (broadcastError || !broadcast) {
         throw new Error(
-          `No se pudo crear el disparo: ${broadcastError?.message ?? 'error desconocido'}`,
+          t('broadcasts.telegram.failedCreate', {
+            message: broadcastError?.message ?? t('common.unknownError'),
+          }),
         );
       }
 
@@ -148,7 +152,7 @@ export function TelegramBroadcastForm() {
 
       if (recipientsError) {
         throw new Error(
-          `No se pudieron crear destinatarios: ${recipientsError.message}`,
+          t('broadcasts.telegram.failedRecipients', { message: recipientsError.message }),
         );
       }
 
@@ -163,15 +167,18 @@ export function TelegramBroadcastForm() {
       const payload = await res.json().catch(() => null);
 
       if (!res.ok) {
-        throw new Error(payload?.error ?? 'No se pudo enviar el disparo.');
+        throw new Error(payload?.error ?? t('broadcasts.telegram.failedSend'));
       }
 
       toast.success(
-        `Disparo enviado: ${payload.sent_count ?? 0} enviados, ${payload.failed_count ?? 0} fallidos.`,
+        t('broadcasts.telegram.sentToast', {
+          sent: payload.sent_count ?? 0,
+          failed: payload.failed_count ?? 0,
+        }),
       );
       router.push(`/broadcasts/${broadcast.id}`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'No se pudo enviar.');
+      toast.error(err instanceof Error ? err.message : t('broadcasts.telegram.failedSend'));
     } finally {
       setSending(false);
     }
@@ -188,9 +195,11 @@ export function TelegramBroadcastForm() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white">Nueva campana Telegram</h1>
+        <h1 className="text-2xl font-bold text-white">
+          {t('broadcasts.telegram.title')}
+        </h1>
         <p className="mt-1 text-sm text-slate-400">
-          Envia un mensaje de texto libre a los contactos que ya hablaron con el bot.
+          {t('broadcasts.telegram.description')}
         </p>
       </div>
 
@@ -201,12 +210,14 @@ export function TelegramBroadcastForm() {
           </div>
           <div>
             <p className="text-sm font-medium text-white">
-              {filteredContacts.length.toLocaleString()} contactos Telegram
+              {t('broadcasts.telegram.contactCount', {
+                count: filteredContacts.length.toLocaleString(locale),
+              })}
             </p>
             <p className="text-xs text-slate-400">
               {selectedTagIds.length > 0
-                ? 'Filtrado por las etiquetas seleccionadas.'
-                : 'Sin filtros: se incluyen todos los contactos con identificador Telegram.'}
+                ? t('broadcasts.telegram.filteredByTags')
+                : t('broadcasts.telegram.allTelegramContacts')}
             </p>
           </div>
         </div>
@@ -215,12 +226,16 @@ export function TelegramBroadcastForm() {
       <div className="rounded-xl border border-slate-800 bg-slate-900 p-5">
         <div className="mb-3 flex items-center gap-2">
           <Tags className="h-4 w-4 text-primary" />
-          <p className="text-sm font-medium text-white">Audiencia por etiquetas</p>
-          <span className="text-xs text-slate-500">(opcional)</span>
+          <p className="text-sm font-medium text-white">
+            {t('broadcasts.telegram.audienceByTags')}
+          </p>
+          <span className="text-xs text-slate-500">
+            {t('broadcasts.telegram.optional')}
+          </span>
         </div>
         {tags.length === 0 ? (
           <p className="text-xs text-slate-500">
-            No hay etiquetas creadas. Si no seleccionas nada, se enviara a todos los contactos Telegram.
+            {t('broadcasts.telegram.noTags')}
           </p>
         ) : (
           <div className="flex flex-wrap gap-2">
@@ -251,25 +266,29 @@ export function TelegramBroadcastForm() {
 
       <div className="space-y-4 rounded-xl border border-slate-800 bg-slate-900 p-5">
         <div>
-          <label className="text-sm font-medium text-white">Nombre del disparo</label>
+          <label className="text-sm font-medium text-white">
+            {t('broadcasts.telegram.broadcastName')}
+          </label>
           <input
             value={name}
             onChange={(event) => setName(event.target.value)}
-            placeholder="Ej. Promocion consulta inicial"
+            placeholder={t('broadcasts.telegram.namePlaceholder')}
             className="mt-2 h-10 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-primary focus:ring-1 focus:ring-primary"
           />
         </div>
 
         <div>
-          <label className="text-sm font-medium text-white">Mensaje</label>
+          <label className="text-sm font-medium text-white">
+            {t('broadcasts.telegram.message')}
+          </label>
           <Textarea
             value={message}
             onChange={(event) => setMessage(event.target.value)}
-            placeholder="Escribe el mensaje que recibiran tus contactos por Telegram..."
+            placeholder={t('broadcasts.telegram.messagePlaceholder')}
             className="mt-2 min-h-40 border-slate-700 bg-slate-950 text-white placeholder:text-slate-500"
           />
           <p className="mt-2 text-xs text-slate-500">
-            Telegram permite texto libre. Evita spam y envia solo a contactos que aceptaron escribir al bot.
+            {t('broadcasts.telegram.messageHint')}
           </p>
         </div>
       </div>
@@ -281,7 +300,7 @@ export function TelegramBroadcastForm() {
           className="border-slate-700 text-slate-300"
         >
           <ArrowLeft className="h-4 w-4" />
-          Volver
+          {t('common.back')}
         </Button>
         <Button
           onClick={handleSend}
@@ -289,7 +308,7 @@ export function TelegramBroadcastForm() {
           className="bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
         >
           {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-          {sending ? 'Enviando...' : 'Enviar campana'}
+          {sending ? t('broadcasts.telegram.sending') : t('broadcasts.telegram.send')}
         </Button>
       </div>
     </div>

@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/hooks/use-auth';
 import { useLanguage } from '@/hooks/use-language';
 import { Broadcast } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -58,6 +59,7 @@ function RateCell({
 export default function BroadcastsPage() {
   const router = useRouter();
   const { locale, t } = useLanguage();
+  const { profile } = useAuth();
   const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -90,6 +92,11 @@ export default function BroadcastsPage() {
     () => broadcasts.some((b) => b.status === 'sending'),
     [broadcasts],
   );
+  const messagingChannel = profile?.messaging_channel ?? 'whatsapp';
+  const description =
+    messagingChannel === 'telegram'
+      ? t('broadcasts.descriptionTelegram')
+      : t('broadcasts.descriptionWhatsapp');
 
   useEffect(() => {
     function startPolling() {
@@ -180,7 +187,7 @@ export default function BroadcastsPage() {
         <div>
           <h1 className="text-2xl font-bold text-white">{t('broadcasts.title')}</h1>
           <p className="mt-1 text-sm text-slate-400">
-            {t('broadcasts.description')}
+            {description}
           </p>
         </div>
         <Button

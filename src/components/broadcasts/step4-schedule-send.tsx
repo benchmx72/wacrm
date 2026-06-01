@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { useLanguage } from '@/hooks/use-language';
 import { MessageTemplate } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -45,6 +46,7 @@ export function Step4ScheduleSend({
   isProcessing,
   progress,
 }: Step4Props) {
+  const { t } = useLanguage();
   const [showConfirm, setShowConfirm] = useState(false);
   const [estimatedReach, setEstimatedReach] = useState<number>(0);
   const [loadingReach, setLoadingReach] = useState(true);
@@ -83,47 +85,51 @@ export function Step4ScheduleSend({
 
   const audienceLabel =
     audience.type === 'all'
-      ? 'All Contacts'
+      ? t('broadcasts.wizard.audience.all')
       : audience.type === 'tags'
-        ? `Tags (${audience.tagIds?.length ?? 0} selected)`
+        ? t('broadcasts.wizard.tagsSelected', { count: audience.tagIds?.length ?? 0 })
         : audience.type === 'csv'
-          ? 'CSV Upload'
-          : 'Custom';
+          ? t('broadcasts.wizard.audience.csv')
+          : t('broadcasts.wizard.custom');
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-white">Review & Send</h2>
+        <h2 className="text-lg font-semibold text-white">
+          {t('broadcasts.wizard.reviewTitle')}
+        </h2>
         <p className="mt-1 text-sm text-slate-400">
-          Name your broadcast, review the details, and send.
+          {t('broadcasts.wizard.reviewDescription')}
         </p>
       </div>
 
       {/* Broadcast Name */}
       <div>
-        <label className="mb-1.5 block text-sm font-medium text-white">Broadcast Name</label>
+        <label className="mb-1.5 block text-sm font-medium text-white">
+          {t('broadcasts.wizard.broadcastName')}
+        </label>
         <Input
           value={name}
           onChange={(e) => onNameChange(e.target.value)}
-          placeholder="e.g. Summer Sale Announcement"
+          placeholder={t('broadcasts.wizard.broadcastNamePlaceholder')}
           className="border-slate-700 bg-slate-800 text-white placeholder:text-slate-500"
         />
       </div>
 
       {/* Summary Card */}
       <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4 space-y-3">
-        <p className="text-sm font-medium text-white">Summary</p>
+        <p className="text-sm font-medium text-white">{t('broadcasts.wizard.summary')}</p>
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div>
-            <p className="text-xs text-slate-400">Template</p>
+            <p className="text-xs text-slate-400">{t('broadcasts.columns.template')}</p>
             <p className="text-white">{template.name}</p>
           </div>
           <div>
-            <p className="text-xs text-slate-400">Audience</p>
+            <p className="text-xs text-slate-400">{t('broadcasts.wizard.audienceLabel')}</p>
             <p className="text-white">{audienceLabel}</p>
           </div>
           <div>
-            <p className="text-xs text-slate-400">Estimated Reach</p>
+            <p className="text-xs text-slate-400">{t('broadcasts.wizard.estimatedReach')}</p>
             <div className="flex items-center gap-1.5">
               {loadingReach ? (
                 <Loader2 className="h-3 w-3 animate-spin text-primary" />
@@ -136,7 +142,7 @@ export function Step4ScheduleSend({
             </div>
           </div>
           <div>
-            <p className="text-xs text-slate-400">Language</p>
+            <p className="text-xs text-slate-400">{t('broadcasts.wizard.language')}</p>
             <p className="text-white">{template.language ?? 'en_US'}</p>
           </div>
         </div>
@@ -148,7 +154,9 @@ export function Step4ScheduleSend({
           <div className="mb-2 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Loader2 className="h-4 w-4 animate-spin text-primary" />
-              <p className="text-sm font-medium text-white">Sending broadcast...</p>
+              <p className="text-sm font-medium text-white">
+                {t('broadcasts.wizard.sendingBroadcast')}
+              </p>
             </div>
             <span className="text-xs font-medium text-primary">{progress}%</span>
           </div>
@@ -169,7 +177,7 @@ export function Step4ScheduleSend({
           className="border-slate-700 text-slate-300"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back
+          {t('common.back')}
         </Button>
 
         <div className="flex items-center gap-2">
@@ -181,7 +189,7 @@ export function Step4ScheduleSend({
               className="border-slate-700 text-slate-300 hover:bg-slate-800 disabled:opacity-50"
             >
               <Save className="h-4 w-4" />
-              Save as Draft
+              {t('broadcasts.wizard.saveDraft')}
             </Button>
           )}
 
@@ -195,17 +203,20 @@ export function Step4ScheduleSend({
             }
           >
             <Send className="h-4 w-4" />
-            Send Broadcast
+            {t('broadcasts.wizard.sendBroadcast')}
           </DialogTrigger>
           <DialogContent className="border-slate-700 bg-slate-900 sm:max-w-md">
             <DialogHeader>
-              <DialogTitle className="text-white">Confirm Broadcast</DialogTitle>
+              <DialogTitle className="text-white">
+                {t('broadcasts.wizard.confirmTitle')}
+              </DialogTitle>
               <DialogDescription className="text-slate-400">
-                You are about to send this broadcast to{' '}
+                {t('broadcasts.wizard.confirmIntro')}{' '}
                 <span className="font-medium text-white">{estimatedReach.toLocaleString()}</span>{' '}
-                contacts using the{' '}
-                <span className="font-medium text-white">{template.name}</span> template.
-                This action cannot be undone.
+                {t('broadcasts.wizard.confirmMiddle')}{' '}
+                <span className="font-medium text-white">{template.name}</span>.
+                {' '}
+                {t('broadcasts.wizard.confirmEnd')}
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
@@ -214,7 +225,7 @@ export function Step4ScheduleSend({
                 onClick={() => setShowConfirm(false)}
                 className="border-slate-700 text-slate-300"
               >
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button
                 onClick={() => {
@@ -224,7 +235,7 @@ export function Step4ScheduleSend({
                 className="bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 <Send className="h-4 w-4" />
-                Confirm & Send
+                {t('broadcasts.wizard.confirmSend')}
               </Button>
             </DialogFooter>
           </DialogContent>

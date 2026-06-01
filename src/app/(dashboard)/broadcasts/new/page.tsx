@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { getClientAccountOwnerId } from '@/lib/auth/account';
 import { useAuth } from '@/hooks/use-auth';
+import { useLanguage } from '@/hooks/use-language';
 import { toast } from 'sonner';
 import { MessageTemplate } from '@/types';
 import { Step1ChooseTemplate } from '@/components/broadcasts/step1-choose-template';
@@ -13,19 +14,19 @@ import { Step3Personalize } from '@/components/broadcasts/step3-personalize';
 import { Step4ScheduleSend } from '@/components/broadcasts/step4-schedule-send';
 import { TelegramBroadcastForm } from '@/components/broadcasts/telegram-broadcast-form';
 import { useBroadcastSending } from '@/hooks/use-broadcast-sending';
-import { Button } from '@/components/ui/button';
 import { Check, Loader2 } from 'lucide-react';
 
 const steps = [
-  { label: 'Template', key: 'template' },
-  { label: 'Audience', key: 'audience' },
-  { label: 'Personalize', key: 'personalize' },
-  { label: 'Send', key: 'send' },
+  { labelKey: 'broadcasts.wizard.steps.template', key: 'template' },
+  { labelKey: 'broadcasts.wizard.steps.audience', key: 'audience' },
+  { labelKey: 'broadcasts.wizard.steps.personalize', key: 'personalize' },
+  { labelKey: 'broadcasts.wizard.steps.send', key: 'send' },
 ] as const;
 
 export default function NewBroadcastPage() {
   const router = useRouter();
   const { profile, loading: authLoading } = useAuth();
+  const { t } = useLanguage();
   const { createAndSendBroadcast, isProcessing, progress } = useBroadcastSending();
 
   const [currentStep, setCurrentStep] = useState(0);
@@ -80,7 +81,7 @@ export default function NewBroadcastPage() {
     } catch (err) {
       // Previously swallowed with console.error — the wizard would
       // just no-op, leaving the user confused. Surface the reason.
-      const message = err instanceof Error ? err.message : 'Broadcast failed';
+      const message = err instanceof Error ? err.message : t('broadcasts.wizard.failedSend');
       console.error('Broadcast failed:', err);
       toast.error(message);
     }
@@ -97,7 +98,7 @@ export default function NewBroadcastPage() {
    */
   async function handleSaveDraft() {
     if (!template || !name.trim()) {
-      toast.error('Give the broadcast a name before saving a draft.');
+      toast.error(t('broadcasts.wizard.nameRequired'));
       return;
     }
     const supabase = createClient();
@@ -106,7 +107,7 @@ export default function NewBroadcastPage() {
     } = await supabase.auth.getSession();
     const user = session?.user;
     if (!user) {
-      toast.error('Not signed in.');
+      toast.error(t('broadcasts.telegram.noSession'));
       return;
     }
     const accountOwnerId = await getClientAccountOwnerId(supabase, user.id);
@@ -131,10 +132,10 @@ export default function NewBroadcastPage() {
     });
 
     if (error) {
-      toast.error(`Failed to save draft: ${error.message}`);
+      toast.error(t('broadcasts.wizard.failedDraft', { message: error.message }));
       return;
     }
-    toast.success('Draft saved');
+    toast.success(t('broadcasts.wizard.draftSaved'));
     router.push('/broadcasts');
   }
 
@@ -142,9 +143,11 @@ export default function NewBroadcastPage() {
     <div className="mx-auto max-w-3xl space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-white">New Broadcast</h1>
+        <h1 className="text-2xl font-bold text-white">
+          {t('broadcasts.wizard.title')}
+        </h1>
         <p className="mt-1 text-sm text-slate-400">
-          Create and send a broadcast message to your contacts.
+          {t('broadcasts.wizard.description')}
         </p>
       </div>
 
@@ -173,7 +176,7 @@ export default function NewBroadcastPage() {
                     isActive ? 'text-white' : isCompleted ? 'text-primary' : 'text-slate-500'
                   }`}
                 >
-                  {step.label}
+                  {t(step.labelKey)}
                 </span>
               </div>
               {index < steps.length - 1 && (
