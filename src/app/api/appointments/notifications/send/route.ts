@@ -4,6 +4,7 @@ import { supabaseAdmin } from '@/lib/automations/admin-client'
 import { isSmtpConfigured, sendSmtpEmail } from '@/lib/email/smtp'
 
 export const runtime = 'nodejs'
+const WORKER_VERSION = 'notifications-worker-2026-06-02-2'
 
 type NotificationRow = {
   id: string
@@ -24,8 +25,10 @@ function authorize(request: Request) {
 
   const url = new URL(request.url)
   const supplied =
-    request.headers.get('x-cron-secret')?.trim() ??
-    url.searchParams.get('secret')?.trim() ??
+    request.headers.get('x-cron-secret')?.trim() ||
+    url.searchParams.get('secret')?.trim() ||
+    url.searchParams.get('cron_secret')?.trim() ||
+    url.searchParams.get('key')?.trim() ||
     ''
 
   const suppliedBuf = Buffer.from(supplied)
@@ -39,14 +42,20 @@ function authorize(request: Request) {
     : { ok: false, status: 401, error: 'Unauthorized' }
 }
 
+function jsonResponse(body: unknown, init?: ResponseInit) {
+  const response = NextResponse.json(body, init)
+  response.headers.set('x-sophia-worker-version', WORKER_VERSION)
+  return response
+}
+
 export async function GET(request: Request) {
   const auth = authorize(request)
   if (!auth.ok) {
-    return NextResponse.json({ error: auth.error }, { status: auth.status })
+    return jsonResponse({ error: auth.error }, { status: auth.status })
   }
 
   if (!isSmtpConfigured()) {
-    return NextResponse.json({ error: 'SMTP not configured' }, { status: 503 })
+    return jsonResponse({ error: 'SMTP not configured' }, { status: 503 })
   }
 
   const limit = Math.min(
@@ -62,9 +71,9 @@ export async function GET(request: Request) {
     .order('created_at', { ascending: true })
     .limit(limit)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return jsonResponse({ error: error.message }, { status: 500 })
   const rows = (data ?? []) as NotificationRow[]
-  if (rows.length === 0) return NextResponse.json({ processed: 0, sent: 0, failed: 0 })
+  if (rows.length === 0) return jsonResponse({ processed: 0, sent: 0, failed: 0 })
 
   let sent = 0
   let failed = 0
@@ -131,7 +140,7 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.json({
+  return jsonResponse({
     processed: rows.length,
     sent,
     failed,
