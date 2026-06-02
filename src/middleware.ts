@@ -43,7 +43,8 @@ function apiPermissionFor(pathname: string) {
   if (
     pathname === '/api/whatsapp/webhook' ||
     pathname === '/api/automations/cron' ||
-    pathname === '/api/flows/cron'
+    pathname === '/api/flows/cron' ||
+    pathMatches(pathname, '/api/appointments/notifications')
   ) {
     return null
   }
