@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getServerAccountOwnerId } from "@/lib/auth/account";
+import {
+  queueAppointmentNotifications,
+  type AppointmentNotificationEvent,
+} from "@/lib/appointments/notifications";
 
 const VALID_STATUSES = new Set([
   "proposed",
@@ -25,6 +29,26 @@ function cleanText(value: unknown) {
   if (typeof value !== "string") return undefined;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+function inferNotificationEvent(
+  before: { status?: string; scheduled_start?: string | null; scheduled_end?: string | null },
+  after: { status?: string; scheduled_start?: string | null; scheduled_end?: string | null },
+): AppointmentNotificationEvent {
+  if (before.status !== after.status) {
+    if (after.status === "confirmed") return "confirmed";
+    if (after.status === "cancelled") return "cancelled";
+    if (after.status === "completed") return "completed";
+  }
+
+  if (
+    before.scheduled_start !== after.scheduled_start ||
+    before.scheduled_end !== after.scheduled_end
+  ) {
+    return "updated";
+  }
+
+  return "updated";
 }
 
 export async function PATCH(
@@ -60,15 +84,37 @@ export async function PATCH(
     return NextResponse.json({ error: "No fields to update" }, { status: 400 });
   }
 
+  const { data: existing, error: existingError } = await supabase
+    .from("appointments")
+    .select("id, status, scheduled_start, scheduled_end")
+    .eq("id", id)
+    .eq("user_id", accountOwnerId)
+    .maybeSingle();
+
+  if (existingError) {
+    return NextResponse.json({ error: existingError.message }, { status: 500 });
+  }
+  if (!existing) {
+    return NextResponse.json({ error: "Appointment not found" }, { status: 404 });
+  }
+
   const { data, error } = await supabase
     .from("appointments")
     .update(update)
     .eq("id", id)
     .eq("user_id", accountOwnerId)
-    .select()
+    .select("*, contact:contacts(name, phone, email)")
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  await queueAppointmentNotifications({
+    supabase,
+    accountOwnerId,
+    appointment: data,
+    eventType: inferNotificationEvent(existing, data),
+    actorUserId: user.id,
+  });
 
   return NextResponse.json({ appointment: data });
 }

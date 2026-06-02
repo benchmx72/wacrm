@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { userHasPermission } from "@/lib/auth/server-permissions";
 import { getServerAccountOwnerId } from "@/lib/auth/account";
+import { queueAppointmentNotifications } from "@/lib/appointments/notifications";
 
 type LeadProfile = {
   name?: string;
@@ -52,12 +53,17 @@ export async function POST(request: Request) {
   const preferredTime = cleanString(body?.preferred_time) || "Por confirmar";
   const notes = cleanString(body?.notes) || lead.nextAction || lead.need || "";
 
-  let contact: { id: string; name?: string | null; phone?: string | null } | null = null;
+  let contact: {
+    id: string;
+    name?: string | null;
+    phone?: string | null;
+    email?: string | null;
+  } | null = null;
 
   if (contactId) {
     const { data, error } = await supabase
       .from("contacts")
-      .select("id, name, phone")
+      .select("id, name, phone, email")
       .eq("id", contactId)
       .eq("user_id", accountOwnerId)
       .maybeSingle();
@@ -69,7 +75,7 @@ export async function POST(request: Request) {
     const phone = demoPhoneFor(lead.service);
     const { data: existing } = await supabase
       .from("contacts")
-      .select("id, name, phone")
+      .select("id, name, phone, email")
       .eq("user_id", accountOwnerId)
       .eq("phone", phone)
       .maybeSingle();
@@ -85,7 +91,7 @@ export async function POST(request: Request) {
           name: lead.name || "Lead demo",
           company: lead.service || "Demo",
         })
-        .select("id, name, phone")
+        .select("id, name, phone, email")
         .single();
       if (error || !data) {
         return NextResponse.json(
@@ -155,6 +161,14 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
+
+  await queueAppointmentNotifications({
+    supabase,
+    accountOwnerId,
+    appointment: { ...appointment, contact },
+    eventType: "proposal_created",
+    actorUserId: user.id,
+  });
 
   return NextResponse.json({ contact, note, appointment });
 }
