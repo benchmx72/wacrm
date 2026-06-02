@@ -15,13 +15,19 @@ type NotificationRow = {
 }
 
 function authorize(request: Request) {
-  const expected =
+  const expected = (
     process.env.APPOINTMENT_NOTIFICATIONS_SECRET ??
     process.env.AUTOMATION_CRON_SECRET
+  )?.trim()
 
   if (!expected) return { ok: false, status: 503, error: 'worker not configured' }
 
-  const supplied = request.headers.get('x-cron-secret') ?? ''
+  const url = new URL(request.url)
+  const supplied =
+    request.headers.get('x-cron-secret')?.trim() ??
+    url.searchParams.get('secret')?.trim() ??
+    ''
+
   const suppliedBuf = Buffer.from(supplied)
   const expectedBuf = Buffer.from(expected)
   const matches =
