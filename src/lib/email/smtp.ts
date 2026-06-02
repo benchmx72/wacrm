@@ -30,6 +30,12 @@ function smtpSecure(port: number) {
   return port === 465
 }
 
+function smtpRejectUnauthorized() {
+  const raw = process.env.SMTP_TLS_REJECT_UNAUTHORIZED?.trim().toLowerCase()
+  if (raw === 'false') return false
+  return true
+}
+
 export function isSmtpConfigured() {
   return Boolean(
     process.env.SMTP_HOST?.trim() &&
@@ -53,6 +59,9 @@ export async function sendSmtpEmail({
     auth: {
       user: requiredEnv('SMTP_USER'),
       pass: requiredEnv('SMTP_PASS'),
+    },
+    tls: {
+      rejectUnauthorized: smtpRejectUnauthorized(),
     },
   })
 
