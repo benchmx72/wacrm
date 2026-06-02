@@ -88,6 +88,14 @@ export const dictionaries = {
         conversations: "Conversaciones",
         contacts: "Contactos",
       },
+      appointments: {
+        title: "Citas pendientes",
+        subtitle: "Propuestas y confirmadas que requieren seguimiento",
+        viewAll: "Ver citas ->",
+        emptyTitle: "No hay citas pendientes",
+        emptyHint:
+          "Cuando el agente o el staff propongan una cita, aparecera aqui.",
+      },
       conversations: {
         title: "Conversaciones en el tiempo",
         subtitle: "Volumen diario de mensajes por dirección",
@@ -973,6 +981,14 @@ export const dictionaries = {
         subtitle: "Conversas e contatos detectados por plataforma",
         conversations: "Conversas",
         contacts: "Contatos",
+      },
+      appointments: {
+        title: "Consultas pendentes",
+        subtitle: "Propostas e confirmadas que precisam de acompanhamento",
+        viewAll: "Ver consultas ->",
+        emptyTitle: "Nao ha consultas pendentes",
+        emptyHint:
+          "Quando o agente ou a equipe propuserem uma consulta, ela aparecera aqui.",
       },
       conversations: {
         title: "Conversas ao longo do tempo",

@@ -11,6 +11,7 @@ import type {
   ActivityItem,
   ChannelBreakdown,
   ConversationsSeriesPoint,
+  DashboardAppointment,
   MetricsBundle,
   PipelineDonutData,
   PipelineStageSlice,
@@ -145,6 +146,45 @@ async function loadLeadIntentCounts(db: DB) {
     qualified: qualified.count ?? 0,
     hot: hot.count ?? 0,
   }
+}
+
+// --- 1b. Appointments requiring attention ------------------------------
+
+export async function loadUpcomingAppointments(
+  db: DB,
+  limit = 6,
+): Promise<DashboardAppointment[]> {
+  const { data, error } = await db
+    .from('appointments')
+    .select('id, title, status, preferred_time, scheduled_start, created_at, contact:contacts(name, phone)')
+    .in('status', ['proposed', 'confirmed'])
+    .order('scheduled_start', { ascending: true })
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  if (error) throw error
+
+  return ((data ?? []) as unknown as Array<{
+    id: string
+    title: string
+    status: DashboardAppointment['status']
+    preferred_time: string | null
+    scheduled_start: string | null
+    created_at: string
+    contact: { name: string | null; phone: string }[] | { name: string | null; phone: string } | null
+  }>).map((row) => {
+    const contact = Array.isArray(row.contact) ? row.contact[0] : row.contact
+    return {
+      id: row.id,
+      title: row.title,
+      status: row.status,
+      preferredTime: row.preferred_time,
+      scheduledStart: row.scheduled_start,
+      createdAt: row.created_at,
+      contactName: contact?.name ?? null,
+      contactPhone: contact?.phone ?? null,
+    }
+  })
 }
 
 // --- 2. Conversations over time ---------------------------------------

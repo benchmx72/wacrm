@@ -63,6 +63,17 @@ export interface ChannelBreakdown {
   }
 }
 
+export interface DashboardAppointment {
+  id: string
+  title: string
+  status: 'proposed' | 'confirmed' | 'cancelled' | 'completed'
+  preferredTime: string | null
+  scheduledStart: string | null
+  createdAt: string
+  contactName: string | null
+  contactPhone: string | null
+}
+
 export type ActivityKind =
   | 'message'
   | 'deal'

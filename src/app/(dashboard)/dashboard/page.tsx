@@ -20,11 +20,13 @@ import {
   loadMetrics,
   loadPipelineDonut,
   loadResponseTime,
+  loadUpcomingAppointments,
 } from '@/lib/dashboard/queries'
 import type {
   ActivityItem,
   ChannelBreakdown as ChannelBreakdownData,
   ConversationsSeriesPoint,
+  DashboardAppointment,
   MetricsBundle,
   PipelineDonutData,
   ResponseTimeSummary,
@@ -38,6 +40,7 @@ import { PipelineDonut } from '@/components/dashboard/pipeline-donut'
 import { ResponseTimeChart } from '@/components/dashboard/response-time-chart'
 import { ActivityFeed } from '@/components/dashboard/activity-feed'
 import { ChannelBreakdown } from '@/components/dashboard/channel-breakdown'
+import { UpcomingAppointments } from '@/components/dashboard/upcoming-appointments'
 
 type RangeDays = 7 | 30 | 90
 
@@ -69,6 +72,9 @@ export default function DashboardPage() {
   const [channels, setChannels] = useState<ChannelBreakdownData | null>(null)
   const [channelsLoading, setChannelsLoading] = useState(true)
 
+  const [appointments, setAppointments] = useState<DashboardAppointment[] | null>(null)
+  const [appointmentsLoading, setAppointmentsLoading] = useState(true)
+
   const loadAll = useCallback(() => {
     const db = createClient()
 
@@ -94,6 +100,11 @@ export default function DashboardPage() {
       .then((c) => setChannels(c))
       .catch((err) => console.error('[dashboard] channels failed:', err))
       .finally(() => setChannelsLoading(false))
+
+    void loadUpcomingAppointments(db)
+      .then((a) => setAppointments(a))
+      .catch((err) => console.error('[dashboard] appointments failed:', err))
+      .finally(() => setAppointmentsLoading(false))
 
     void loadResponseTime(db)
       .then((r) => setResponseTime(r))
@@ -233,6 +244,12 @@ export default function DashboardPage() {
 
       {/* Channel source */}
       <ChannelBreakdown data={channels} loading={channelsLoading} />
+
+      {/* Appointments queue */}
+      <UpcomingAppointments
+        appointments={appointments}
+        loading={appointmentsLoading}
+      />
 
       {/* Charts row */}
       {/* items-stretch (the grid default) stretches the two columns to
