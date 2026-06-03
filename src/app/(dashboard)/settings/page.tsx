@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Bot, Settings, MessageSquare, Tag, User, Palette, Users, Send, RadioTower, Loader2 } from 'lucide-react';
+import { Bot, Settings, MessageSquare, Tag, User, Palette, Users, Send, RadioTower, Loader2, CalendarDays } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { WhatsAppConfig } from '@/components/settings/whatsapp-config';
 import { TelegramConfig } from '@/components/settings/telegram-config';
@@ -15,6 +15,7 @@ import { SessionsCard } from '@/components/settings/sessions-card';
 import { AppearancePanel } from '@/components/settings/appearance-panel';
 import { AiAgentPanel } from '@/components/settings/ai-agent-panel';
 import { TeamPanel } from '@/components/settings/team-panel';
+import { AppointmentSettingsPanel } from '@/components/settings/appointment-settings-panel';
 import { useLanguage } from '@/hooks/use-language';
 import { useAuth } from '@/hooks/use-auth';
 import type { AppPermission } from '@/lib/auth/roles';
@@ -27,6 +28,7 @@ const TAB_VALUES = [
   'telegram',
   'templates',
   'tags',
+  'appointments',
   'ai',
   'team',
   'appearance',
@@ -40,6 +42,7 @@ const TAB_PERMISSIONS: Record<TabValue, AppPermission> = {
   telegram: 'manage_whatsapp',
   templates: 'manage_templates',
   tags: 'manage_tags',
+  appointments: 'manage_appointments',
   ai: 'manage_ai',
   team: 'manage_users',
   appearance: 'manage_appearance',
@@ -157,6 +160,15 @@ export default function SettingsPage() {
               {t('settings.tabs.tags')}
             </TabsTrigger>
           )}
+          {hasPermission(profile?.role, 'manage_appointments') && (
+            <TabsTrigger
+              value="appointments"
+              className="data-active:bg-slate-800 data-active:text-primary text-slate-400"
+            >
+              <CalendarDays className="size-4" />
+              {t('settings.tabs.appointments')}
+            </TabsTrigger>
+          )}
           {hasPermission(profile?.role, 'manage_ai') && (
             <TabsTrigger
               value="ai"
@@ -219,6 +231,12 @@ export default function SettingsPage() {
         {hasPermission(profile?.role, 'manage_tags') && (
           <TabsContent value="tags">
             <TagManager />
+          </TabsContent>
+        )}
+
+        {hasPermission(profile?.role, 'manage_appointments') && (
+          <TabsContent value="appointments">
+            <AppointmentSettingsPanel />
           </TabsContent>
         )}
 

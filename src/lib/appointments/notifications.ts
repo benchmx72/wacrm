@@ -1,4 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import {
+  DEFAULT_APPOINTMENT_DURATION_MINUTES,
+  DEFAULT_APPOINTMENT_TIMEZONE,
+  loadAppointmentSettings,
+  type AppointmentSettings,
+} from '@/lib/appointments/settings'
 
 export type AppointmentNotificationEvent =
   | 'proposal_created'
@@ -55,11 +61,6 @@ const EVENT_LABELS: Record<AppointmentNotificationEvent, string> = {
   completed: 'Cita completada',
 }
 
-const DEFAULT_APPOINTMENT_TIMEZONE =
-  process.env.APPOINTMENT_DEFAULT_TIMEZONE?.trim() ||
-  process.env.NEXT_PUBLIC_DEFAULT_TIMEZONE?.trim() ||
-  'America/Santarem'
-
 export async function queueAppointmentNotifications({
   supabase,
   accountOwnerId,
@@ -68,11 +69,12 @@ export async function queueAppointmentNotifications({
   actorUserId,
 }: QueueInput) {
   try {
-    const recipients = await loadRecipients(supabase, accountOwnerId, appointment)
+    const settings = await loadAppointmentSettings(supabase, accountOwnerId)
+    const recipients = await loadRecipients(supabase, accountOwnerId, appointment, settings)
     if (recipients.length === 0) return
 
     const rows = recipients.map((recipient) => {
-      const content = buildNotificationContent(appointment, eventType, recipient)
+      const content = buildNotificationContent(appointment, eventType, recipient, settings)
       return {
         user_id: accountOwnerId,
         appointment_id: appointment.id,
@@ -90,7 +92,7 @@ export async function queueAppointmentNotifications({
           actor_user_id: actorUserId ?? null,
           appointment_status: appointment.status,
           html_body: content.html,
-          timezone: appointment.timezone ?? DEFAULT_APPOINTMENT_TIMEZONE,
+          timezone: appointment.timezone ?? settings.default_timezone,
         },
       }
     })
@@ -108,17 +110,31 @@ async function loadRecipients(
   supabase: SupabaseClient,
   accountOwnerId: string,
   appointment: AppointmentNotificationRow,
+  settings: AppointmentSettings,
 ): Promise<Recipient[]> {
-  const recipients: Recipient[] = [
-    {
+  const recipients: Recipient[] = []
+
+  if (settings.notify_client) {
+    recipients.push({
       type: 'client',
       email: appointment.contact?.email ?? null,
       name:
         appointment.contact?.name ??
         appointment.contact?.phone ??
         'Cliente',
-    },
-  ]
+    })
+  }
+
+  if (!settings.notify_staff) return recipients
+
+  if (settings.staff_notification_email) {
+    recipients.push({
+      type: 'staff',
+      email: settings.staff_notification_email,
+      name: 'Equipo',
+    })
+    return recipients
+  }
 
   const { data, error } = await supabase
     .from('profiles')
@@ -149,11 +165,12 @@ function buildNotificationContent(
   appointment: AppointmentNotificationRow,
   eventType: AppointmentNotificationEvent,
   recipient: Recipient,
+  settings: AppointmentSettings,
 ): NotificationContent {
   const eventLabel = EVENT_LABELS[eventType]
   const subject = `${eventLabel}: ${appointment.title}`
   const dateLine = appointment.scheduled_start
-    ? `Fecha: ${formatDate(appointment.scheduled_start, appointment.timezone)}`
+    ? `Fecha: ${formatDate(appointment.scheduled_start, appointment.timezone, settings.default_timezone)}`
     : `Horario preferido: ${appointment.preferred_time ?? 'Por confirmar'}`
   const typeLine = appointment.appointment_type ? `Tipo: ${appointment.appointment_type}` : null
   const locationLine = appointment.location ? `Lugar/modalidad: ${appointment.location}` : null
@@ -193,7 +210,7 @@ function buildNotificationContent(
       closing,
       isStaff: recipient.type === 'staff',
     }),
-    ics: buildIcs(appointment, eventType),
+    ics: buildIcs(appointment, eventType, settings.default_duration_minutes),
   }
 }
 
@@ -287,6 +304,7 @@ function escapeHtml(value: string) {
 function buildIcs(
   appointment: AppointmentNotificationRow,
   eventType: AppointmentNotificationEvent,
+  defaultDurationMinutes = DEFAULT_APPOINTMENT_DURATION_MINUTES,
 ) {
   if (!appointment.scheduled_start) return null
 
@@ -295,7 +313,7 @@ function buildIcs(
 
   const end = appointment.scheduled_end
     ? new Date(appointment.scheduled_end)
-    : new Date(start.getTime() + 30 * 60_000)
+    : new Date(start.getTime() + defaultDurationMinutes * 60_000)
 
   if (Number.isNaN(end.getTime())) return null
 
@@ -335,7 +353,11 @@ function escapeIcs(value: string) {
     .replace(/;/g, '\\;')
 }
 
-function formatDate(value: string, timezone?: string | null) {
+function formatDate(
+  value: string,
+  timezone?: string | null,
+  fallbackTimezone = DEFAULT_APPOINTMENT_TIMEZONE,
+) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
 
@@ -343,7 +365,7 @@ function formatDate(value: string, timezone?: string | null) {
     return new Intl.DateTimeFormat('es-419', {
       dateStyle: 'medium',
       timeStyle: 'short',
-      timeZone: timezone || DEFAULT_APPOINTMENT_TIMEZONE,
+      timeZone: timezone || fallbackTimezone,
     }).format(date)
   } catch {
     return new Intl.DateTimeFormat('es-419', {

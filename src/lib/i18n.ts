@@ -734,6 +734,7 @@ export const dictionaries = {
         telegram: "Config. Telegram",
         templates: "Plantillas",
           tags: "Etiquetas",
+          appointments: "Citas",
           ai: "Agente IA",
           team: "Usuarios",
           appearance: "Apariencia",
@@ -828,6 +829,31 @@ export const dictionaries = {
         failedCreate: "No se pudo crear la etiqueta",
         deleted: "Etiqueta eliminada",
         failedDelete: "No se pudo eliminar la etiqueta",
+      },
+      appointments: {
+        title: "Configuracion de citas",
+        description:
+          "Define los valores predeterminados para horarios, correos y avisos de citas.",
+        defaultTimezone: "Zona horaria predeterminada",
+        defaultDuration: "Duracion predeterminada",
+        defaultDurationHint:
+          "Minutos usados cuando una cita no trae hora de fin.",
+        defaultLocation: "Lugar/modalidad predeterminado",
+        defaultLocationPlaceholder: "Ej. Consultorio, Zoom, llamada...",
+        staffEmail: "Correo del staff para avisos",
+        staffEmailPlaceholder: "equipo@empresa.com",
+        staffEmailHint:
+          "Si lo dejas vacio, se avisara a los usuarios activos del equipo.",
+        notifyClient: "Notificar al cliente",
+        notifyClientHint:
+          "Envia correo al contacto cuando tenga e-mail registrado.",
+        notifyStaff: "Notificar al staff",
+        notifyStaffHint:
+          "Envia correo interno al equipo o al correo configurado.",
+        save: "Guardar configuracion",
+        saved: "Configuracion de citas guardada",
+        failedLoad: "No se pudo cargar la configuracion de citas",
+        failedSave: "No se pudo guardar la configuracion de citas",
       },
       team: {
         inviteTitle: "Invitar usuario",
@@ -1628,6 +1654,7 @@ export const dictionaries = {
         telegram: "Config. Telegram",
         templates: "Modelos",
           tags: "Etiquetas",
+          appointments: "Consultas",
           ai: "Agente IA",
           team: "Usuários",
           appearance: "Aparência",
@@ -1721,6 +1748,31 @@ export const dictionaries = {
         failedCreate: "Nao foi possivel criar a etiqueta",
         deleted: "Etiqueta excluida",
         failedDelete: "Nao foi possivel excluir a etiqueta",
+      },
+      appointments: {
+        title: "Configuracao de consultas",
+        description:
+          "Defina os padroes para horarios, e-mails e avisos de consultas.",
+        defaultTimezone: "Fuso horario padrao",
+        defaultDuration: "Duracao padrao",
+        defaultDurationHint:
+          "Minutos usados quando uma consulta nao tem horario de fim.",
+        defaultLocation: "Local/modalidade padrao",
+        defaultLocationPlaceholder: "Ex. Consultorio, Zoom, chamada...",
+        staffEmail: "E-mail da equipe para avisos",
+        staffEmailPlaceholder: "equipe@empresa.com",
+        staffEmailHint:
+          "Se ficar vazio, os usuarios ativos da equipe serao avisados.",
+        notifyClient: "Notificar o cliente",
+        notifyClientHint:
+          "Envia e-mail ao contato quando houver e-mail registrado.",
+        notifyStaff: "Notificar a equipe",
+        notifyStaffHint:
+          "Envia e-mail interno para a equipe ou para o e-mail configurado.",
+        save: "Salvar configuracao",
+        saved: "Configuracao de consultas salva",
+        failedLoad: "Nao foi possivel carregar a configuracao de consultas",
+        failedSave: "Nao foi possivel salvar a configuracao de consultas",
       },
       team: {
         inviteTitle: "Convidar usuario",

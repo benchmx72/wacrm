@@ -3,9 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { userHasPermission } from "@/lib/auth/server-permissions";
 import { getServerAccountOwnerId } from "@/lib/auth/account";
 import { queueAppointmentNotifications } from "@/lib/appointments/notifications";
-
-const DEFAULT_APPOINTMENT_TIMEZONE =
-  process.env.APPOINTMENT_DEFAULT_TIMEZONE?.trim() || "America/Santarem";
+import { loadAppointmentSettings } from "@/lib/appointments/settings";
 
 type LeadProfile = {
   name?: string;
@@ -42,6 +40,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   const accountOwnerId = await getServerAccountOwnerId(supabase, user.id);
+  const appointmentSettings = await loadAppointmentSettings(supabase, accountOwnerId);
 
   const body = await request.json().catch(() => null);
   const lead = (body?.lead_profile ?? {}) as LeadProfile;
@@ -128,7 +127,8 @@ export async function POST(request: Request) {
       appointment_type: appointmentType,
       status: "proposed",
       preferred_time: preferredTime,
-      timezone: DEFAULT_APPOINTMENT_TIMEZONE,
+      timezone: appointmentSettings.default_timezone,
+      location: appointmentSettings.default_location,
       notes: notes || null,
       metadata: {
         source: "demo",
