@@ -50,6 +50,9 @@ const statusTone: Record<Appointment["status"], string> = {
   completed: "bg-slate-700 text-slate-300",
 };
 
+const DEFAULT_APPOINTMENT_TIMEZONE =
+  process.env.NEXT_PUBLIC_DEFAULT_TIMEZONE || "America/Santarem";
+
 function toDateTimeLocal(value?: string | null) {
   if (!value) return "";
   const date = new Date(value);
@@ -70,7 +73,7 @@ function formFromAppointment(appointment: Appointment): EditForm {
     preferred_time: appointment.preferred_time ?? "",
     scheduled_start: toDateTimeLocal(appointment.scheduled_start),
     scheduled_end: toDateTimeLocal(appointment.scheduled_end),
-    timezone: appointment.timezone ?? "",
+    timezone: appointment.timezone ?? DEFAULT_APPOINTMENT_TIMEZONE,
     location: appointment.location ?? "",
     notes: appointment.notes ?? "",
   };
@@ -295,6 +298,7 @@ export default function AppointmentsPage() {
                       {new Date(appointment.scheduled_start).toLocaleString(locale, {
                         dateStyle: "medium",
                         timeStyle: "short",
+                        timeZone: appointment.timezone || DEFAULT_APPOINTMENT_TIMEZONE,
                       })}
                     </p>
                   )}
@@ -462,7 +466,7 @@ export default function AppointmentsPage() {
                   id="timezone"
                   value={editForm.timezone}
                   onChange={(event) => updateEditForm("timezone", event.target.value)}
-                  placeholder="America/Mexico_City"
+                  placeholder="America/Santarem"
                   className="border-slate-700 bg-slate-900"
                 />
               </div>

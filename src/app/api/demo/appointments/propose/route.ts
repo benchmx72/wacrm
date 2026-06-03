@@ -4,6 +4,9 @@ import { userHasPermission } from "@/lib/auth/server-permissions";
 import { getServerAccountOwnerId } from "@/lib/auth/account";
 import { queueAppointmentNotifications } from "@/lib/appointments/notifications";
 
+const DEFAULT_APPOINTMENT_TIMEZONE =
+  process.env.APPOINTMENT_DEFAULT_TIMEZONE?.trim() || "America/Santarem";
+
 type LeadProfile = {
   name?: string;
   service?: string;
@@ -125,6 +128,7 @@ export async function POST(request: Request) {
       appointment_type: appointmentType,
       status: "proposed",
       preferred_time: preferredTime,
+      timezone: DEFAULT_APPOINTMENT_TIMEZONE,
       notes: notes || null,
       metadata: {
         source: "demo",

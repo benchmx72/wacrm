@@ -55,6 +55,11 @@ const EVENT_LABELS: Record<AppointmentNotificationEvent, string> = {
   completed: 'Cita completada',
 }
 
+const DEFAULT_APPOINTMENT_TIMEZONE =
+  process.env.APPOINTMENT_DEFAULT_TIMEZONE?.trim() ||
+  process.env.NEXT_PUBLIC_DEFAULT_TIMEZONE?.trim() ||
+  'America/Santarem'
+
 export async function queueAppointmentNotifications({
   supabase,
   accountOwnerId,
@@ -85,7 +90,7 @@ export async function queueAppointmentNotifications({
           actor_user_id: actorUserId ?? null,
           appointment_status: appointment.status,
           html_body: content.html,
-          timezone: appointment.timezone ?? null,
+          timezone: appointment.timezone ?? DEFAULT_APPOINTMENT_TIMEZONE,
         },
       }
     })
@@ -338,7 +343,7 @@ function formatDate(value: string, timezone?: string | null) {
     return new Intl.DateTimeFormat('es-419', {
       dateStyle: 'medium',
       timeStyle: 'short',
-      timeZone: timezone || undefined,
+      timeZone: timezone || DEFAULT_APPOINTMENT_TIMEZONE,
     }).format(date)
   } catch {
     return new Intl.DateTimeFormat('es-419', {
