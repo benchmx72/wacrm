@@ -4,7 +4,7 @@ import { supabaseAdmin } from '@/lib/automations/admin-client'
 import { isSmtpConfigured, sendSmtpEmail } from '@/lib/email/smtp'
 
 export const runtime = 'nodejs'
-const WORKER_VERSION = 'notifications-worker-2026-06-02-2'
+const WORKER_VERSION = 'notifications-worker-2026-06-03-1'
 
 type NotificationRow = {
   id: string
@@ -105,6 +105,7 @@ export async function GET(request: Request) {
         to: row.recipient_email,
         subject: row.subject,
         text: row.body_text,
+        html: typeof row.metadata?.html_body === 'string' ? row.metadata.html_body : null,
         icsContent: row.ics_content,
       })
 

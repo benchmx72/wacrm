@@ -40,6 +40,13 @@ type Recipient = {
   name: string
 }
 
+type NotificationContent = {
+  subject: string
+  body: string
+  html: string
+  ics: string | null
+}
+
 const EVENT_LABELS: Record<AppointmentNotificationEvent, string> = {
   proposal_created: 'Cita propuesta',
   confirmed: 'Cita confirmada',
@@ -77,6 +84,7 @@ export async function queueAppointmentNotifications({
         metadata: {
           actor_user_id: actorUserId ?? null,
           appointment_status: appointment.status,
+          html_body: content.html,
           timezone: appointment.timezone ?? null,
         },
       }
@@ -136,12 +144,19 @@ function buildNotificationContent(
   appointment: AppointmentNotificationRow,
   eventType: AppointmentNotificationEvent,
   recipient: Recipient,
-) {
+): NotificationContent {
   const eventLabel = EVENT_LABELS[eventType]
   const subject = `${eventLabel}: ${appointment.title}`
   const dateLine = appointment.scheduled_start
     ? `Fecha: ${formatDate(appointment.scheduled_start, appointment.timezone)}`
     : `Horario preferido: ${appointment.preferred_time ?? 'Por confirmar'}`
+  const typeLine = appointment.appointment_type ? `Tipo: ${appointment.appointment_type}` : null
+  const locationLine = appointment.location ? `Lugar/modalidad: ${appointment.location}` : null
+  const notesLine = appointment.notes ? `Notas: ${appointment.notes}` : null
+  const closing =
+    recipient.type === 'staff'
+      ? 'Revisa el CRM para confirmar detalles, reprogramar o cerrar seguimiento.'
+      : 'Si necesitas cambiar el horario, responde por el canal donde iniciamos la conversacion.'
 
   const body = [
     `Hola ${recipient.name},`,
@@ -149,14 +164,12 @@ function buildNotificationContent(
     `${eventLabel} en SophIA CRM.`,
     '',
     `Cita: ${appointment.title}`,
-    appointment.appointment_type ? `Tipo: ${appointment.appointment_type}` : '',
+    typeLine ?? '',
     dateLine,
-    appointment.location ? `Lugar/modalidad: ${appointment.location}` : '',
-    appointment.notes ? `Notas: ${appointment.notes}` : '',
+    locationLine ?? '',
+    notesLine ?? '',
     '',
-    recipient.type === 'staff'
-      ? 'Revisa el CRM para confirmar detalles, reprogramar o cerrar seguimiento.'
-      : 'Si necesitas cambiar el horario, responde por el canal donde iniciamos la conversacion.',
+    closing,
   ]
     .filter(Boolean)
     .join('\n')
@@ -164,8 +177,106 @@ function buildNotificationContent(
   return {
     subject,
     body,
+    html: buildHtmlEmail({
+      recipientName: recipient.name,
+      eventLabel,
+      title: appointment.title,
+      dateLine,
+      typeLine,
+      locationLine,
+      notesLine,
+      closing,
+      isStaff: recipient.type === 'staff',
+    }),
     ics: buildIcs(appointment, eventType),
   }
+}
+
+function buildHtmlEmail({
+  recipientName,
+  eventLabel,
+  title,
+  dateLine,
+  typeLine,
+  locationLine,
+  notesLine,
+  closing,
+  isStaff,
+}: {
+  recipientName: string
+  eventLabel: string
+  title: string
+  dateLine: string
+  typeLine: string | null
+  locationLine: string | null
+  notesLine: string | null
+  closing: string
+  isStaff: boolean
+}) {
+  const rows = [
+    ['Cita', title],
+    typeLine ? splitDetailLine(typeLine) : null,
+    splitDetailLine(dateLine),
+    locationLine ? splitDetailLine(locationLine) : null,
+    notesLine ? splitDetailLine(notesLine) : null,
+  ].filter(Boolean) as Array<[string, string]>
+
+  const appUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim()
+  const cta = isStaff && appUrl
+    ? `<a href="${escapeHtml(appUrl)}/appointments" style="display:inline-block;border-radius:8px;background:#534AB7;color:#ffffff;font-weight:700;text-decoration:none;padding:12px 18px;">Ver en SophIA CRM</a>`
+    : ''
+
+  return `<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>${escapeHtml(eventLabel)}</title>
+  </head>
+  <body style="margin:0;background:#0E0B2E;color:#ffffff;font-family:Arial,Helvetica,sans-serif;">
+    <div style="padding:28px 16px;">
+      <div style="max-width:620px;margin:0 auto;background:#151132;border:1px solid rgba(127,119,221,0.28);border-radius:14px;overflow:hidden;">
+        <div style="padding:22px 24px;border-bottom:1px solid rgba(127,119,221,0.22);">
+          <div style="font-size:18px;font-weight:800;letter-spacing:-0.2px;color:#ffffff;">Soph<span style="color:#0ABFAD;">IA</span> CRM</div>
+          <div style="margin-top:6px;font-size:13px;color:#B8B3F0;">${escapeHtml(eventLabel)}</div>
+        </div>
+        <div style="padding:24px;">
+          <p style="margin:0 0 16px;font-size:16px;line-height:1.5;color:#ffffff;">Hola ${escapeHtml(recipientName)},</p>
+          <p style="margin:0 0 22px;font-size:15px;line-height:1.6;color:#AEACC4;">${escapeHtml(closing)}</p>
+          <table role="presentation" style="width:100%;border-collapse:collapse;background:#0E0B2E;border-radius:10px;overflow:hidden;">
+            ${rows
+              .map(
+                ([label, value]) => `<tr>
+                  <td style="padding:13px 14px;border-bottom:1px solid rgba(127,119,221,0.16);width:34%;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:#B8B3F0;">${escapeHtml(label)}</td>
+                  <td style="padding:13px 14px;border-bottom:1px solid rgba(127,119,221,0.16);font-size:14px;line-height:1.5;color:#ffffff;">${escapeHtml(value)}</td>
+                </tr>`,
+              )
+              .join('')}
+          </table>
+          ${cta ? `<div style="margin-top:24px;">${cta}</div>` : ''}
+        </div>
+        <div style="padding:16px 24px;background:#1C1844;font-size:12px;line-height:1.5;color:#AEACC4;">
+          Este mensaje fue generado automaticamente por SophIA CRM.
+        </div>
+      </div>
+    </div>
+  </body>
+</html>`
+}
+
+function splitDetailLine(value: string): [string, string] {
+  const index = value.indexOf(':')
+  if (index === -1) return ['Detalle', value]
+  return [value.slice(0, index), value.slice(index + 1).trim()]
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
 }
 
 function buildIcs(

@@ -4,6 +4,7 @@ type SendSmtpEmailInput = {
   to: string
   subject: string
   text: string
+  html?: string | null
   icsContent?: string | null
 }
 
@@ -49,6 +50,7 @@ export async function sendSmtpEmail({
   to,
   subject,
   text,
+  html,
   icsContent,
 }: SendSmtpEmailInput) {
   const port = smtpPort()
@@ -72,14 +74,19 @@ export async function sendSmtpEmail({
     to,
     subject,
     text,
+    html: html ?? undefined,
     attachments: icsContent
       ? [
           {
             filename: 'cita.ics',
             content: icsContent,
-            contentType: 'text/calendar; charset=utf-8; method=REQUEST',
+            contentType: `text/calendar; charset=utf-8; method=${calendarMethod(icsContent)}`,
           },
         ]
       : undefined,
   })
+}
+
+function calendarMethod(icsContent: string) {
+  return icsContent.includes('METHOD:CANCEL') ? 'CANCEL' : 'REQUEST'
 }
