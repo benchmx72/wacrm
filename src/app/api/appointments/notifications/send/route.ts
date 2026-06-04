@@ -1,13 +1,19 @@
 import { timingSafeEqual } from 'node:crypto'
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/automations/admin-client'
+import { queueDueAppointmentReminders } from '@/lib/appointments/notifications'
 import { isSmtpConfigured, sendSmtpEmail } from '@/lib/email/smtp'
+import { sendTelegramText, telegramChatIdFromContact } from '@/lib/telegram/send'
+import { decrypt } from '@/lib/whatsapp/encryption'
 
 export const runtime = 'nodejs'
 const WORKER_VERSION = 'notifications-worker-2026-06-03-1'
 
 type NotificationRow = {
   id: string
+  user_id: string
+  contact_id: string | null
+  channel: 'email' | 'telegram' | 'whatsapp'
   recipient_email: string | null
   subject: string
   body_text: string
@@ -54,26 +60,30 @@ export async function GET(request: Request) {
     return jsonResponse({ error: auth.error }, { status: auth.status })
   }
 
-  if (!isSmtpConfigured()) {
-    return jsonResponse({ error: 'SMTP not configured' }, { status: 503 })
-  }
-
   const limit = Math.min(
     Math.max(Number(new URL(request.url).searchParams.get('limit') ?? 25), 1),
     100,
   )
   const admin = supabaseAdmin()
+  let remindersQueued = 0
+  try {
+    remindersQueued = await queueDueAppointmentReminders(admin)
+  } catch (error) {
+    console.error('[appointments-reminders] queue failed:', error)
+  }
+
   const { data, error } = await admin
     .from('appointment_notifications')
-    .select('id, recipient_email, subject, body_text, ics_content, metadata')
+    .select('id, user_id, contact_id, channel, recipient_email, subject, body_text, ics_content, metadata')
     .eq('status', 'pending')
-    .not('recipient_email', 'is', null)
     .order('created_at', { ascending: true })
     .limit(limit)
 
   if (error) return jsonResponse({ error: error.message }, { status: 500 })
   const rows = (data ?? []) as NotificationRow[]
-  if (rows.length === 0) return jsonResponse({ processed: 0, sent: 0, failed: 0 })
+  if (rows.length === 0) {
+    return jsonResponse({ reminders_queued: remindersQueued, processed: 0, sent: 0, failed: 0 })
+  }
 
   let sent = 0
   let failed = 0
@@ -99,15 +109,10 @@ export async function GET(request: Request) {
     }
 
     try {
-      if (!row.recipient_email) throw new Error('Recipient email missing')
-
-      const result = await sendSmtpEmail({
-        to: row.recipient_email,
-        subject: row.subject,
-        text: row.body_text,
-        html: typeof row.metadata?.html_body === 'string' ? row.metadata.html_body : null,
-        icsContent: row.ics_content,
-      })
+      const result =
+        row.channel === 'telegram'
+          ? await deliverTelegramReminder(admin, row)
+          : await deliverEmailReminder(row)
 
       await admin
         .from('appointment_notifications')
@@ -117,7 +122,7 @@ export async function GET(request: Request) {
           metadata: {
             ...(row.metadata ?? {}),
             sent_at: new Date().toISOString(),
-            smtp_message_id: result.messageId ?? null,
+            delivery_message_id: result.messageId ?? null,
           },
         })
         .eq('id', row.id)
@@ -142,6 +147,7 @@ export async function GET(request: Request) {
   }
 
   return jsonResponse({
+    reminders_queued: remindersQueued,
     processed: rows.length,
     sent,
     failed,
@@ -151,4 +157,96 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   return GET(request)
+}
+
+async function deliverEmailReminder(row: NotificationRow) {
+  if (!isSmtpConfigured()) throw new Error('SMTP not configured')
+  if (!row.recipient_email) throw new Error('Recipient email missing')
+
+  const result = await sendSmtpEmail({
+    to: row.recipient_email,
+    subject: row.subject,
+    text: row.body_text,
+    html:
+      typeof row.metadata?.html_body === 'string'
+        ? row.metadata.html_body
+        : null,
+    icsContent: row.ics_content,
+  })
+
+  return { messageId: result.messageId ?? null }
+}
+
+async function deliverTelegramReminder(
+  admin: ReturnType<typeof supabaseAdmin>,
+  row: NotificationRow,
+) {
+  if (!row.contact_id) throw new Error('Telegram reminder contact missing')
+
+  const [{ data: contact, error: contactError }, { data: config, error: configError }] =
+    await Promise.all([
+      admin
+        .from('contacts')
+        .select('id, phone')
+        .eq('id', row.contact_id)
+        .eq('user_id', row.user_id)
+        .single(),
+      admin
+        .from('telegram_config')
+        .select('bot_token, status')
+        .eq('user_id', row.user_id)
+        .eq('status', 'connected')
+        .maybeSingle(),
+    ])
+
+  if (contactError || !contact) throw new Error('Telegram contact not found')
+  if (configError || !config) throw new Error('Telegram is not connected')
+
+  const chatId = telegramChatIdFromContact(contact.phone)
+  if (!chatId) throw new Error('Telegram chat ID missing')
+
+  const sent = await sendTelegramText({
+    botToken: decrypt(config.bot_token),
+    chatId,
+    text: row.body_text,
+  })
+  const createdAt = new Date(sent.date * 1000).toISOString()
+
+  let { data: conversation } = await admin
+    .from('conversations')
+    .select('id')
+    .eq('user_id', row.user_id)
+    .eq('contact_id', row.contact_id)
+    .maybeSingle()
+
+  if (!conversation) {
+    const { data: created, error } = await admin
+      .from('conversations')
+      .insert({ user_id: row.user_id, contact_id: row.contact_id })
+      .select('id')
+      .single()
+    if (error || !created) throw new Error(error?.message ?? 'Conversation create failed')
+    conversation = created
+  }
+
+  const telegramMessageId = `telegram:${chatId}:${sent.message_id}`
+  await admin.from('messages').insert({
+    conversation_id: conversation.id,
+    sender_type: 'agent',
+    content_type: 'text',
+    content_text: row.body_text,
+    message_id: telegramMessageId,
+    status: 'sent',
+    created_at: createdAt,
+  })
+  await admin
+    .from('conversations')
+    .update({
+      last_message_text: row.body_text,
+      last_message_at: createdAt,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', conversation.id)
+
+  return { messageId: telegramMessageId }
 }

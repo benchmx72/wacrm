@@ -8,7 +8,7 @@ import {
 import { createClient } from '@/lib/supabase/server'
 
 const SELECT =
-  'user_id, default_timezone, default_duration_minutes, default_location, staff_notification_email, notify_client, notify_staff'
+  'user_id, default_timezone, default_duration_minutes, default_location, staff_notification_email, notify_client, notify_staff, reminder_24h_enabled, reminder_2h_enabled, reminder_channel_enabled'
 
 function cleanText(value: unknown, max = 500) {
   if (typeof value !== 'string') return null
@@ -100,6 +100,9 @@ export async function PATCH(request: Request) {
     staff_notification_email: staffEmail ?? null,
     notify_client: body?.notify_client !== false,
     notify_staff: body?.notify_staff !== false,
+    reminder_24h_enabled: body?.reminder_24h_enabled !== false,
+    reminder_2h_enabled: body?.reminder_2h_enabled !== false,
+    reminder_channel_enabled: body?.reminder_channel_enabled !== false,
   }
 
   const { data, error } = await context.supabase

@@ -30,6 +30,9 @@ type AppointmentSettings = {
   staff_notification_email: string | null
   notify_client: boolean
   notify_staff: boolean
+  reminder_24h_enabled: boolean
+  reminder_2h_enabled: boolean
+  reminder_channel_enabled: boolean
 }
 
 const DEFAULT_SETTINGS: AppointmentSettings = {
@@ -39,6 +42,9 @@ const DEFAULT_SETTINGS: AppointmentSettings = {
   staff_notification_email: null,
   notify_client: true,
   notify_staff: true,
+  reminder_24h_enabled: true,
+  reminder_2h_enabled: true,
+  reminder_channel_enabled: true,
 }
 
 const TIMEZONES = [
@@ -265,6 +271,59 @@ export function AppointmentSettingsPanel() {
               </span>
             </span>
           </label>
+        </div>
+
+        <div className="space-y-3">
+          <div>
+            <h3 className="text-sm font-semibold text-white">
+              {t('settings.appointments.remindersTitle')}
+            </h3>
+            <p className="text-xs text-slate-400">
+              {t('settings.appointments.remindersDescription')}
+            </p>
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            {[
+              {
+                key: 'reminder_24h_enabled' as const,
+                label: t('settings.appointments.reminder24h'),
+                hint: t('settings.appointments.reminder24hHint'),
+              },
+              {
+                key: 'reminder_2h_enabled' as const,
+                label: t('settings.appointments.reminder2h'),
+                hint: t('settings.appointments.reminder2hHint'),
+              },
+              {
+                key: 'reminder_channel_enabled' as const,
+                label: t('settings.appointments.reminderChannel'),
+                hint: t('settings.appointments.reminderChannelHint'),
+              },
+            ].map((option) => (
+              <label
+                key={option.key}
+                className="flex items-start gap-3 rounded-lg border border-slate-700 bg-slate-950/40 p-4"
+              >
+                <Switch
+                  checked={settings[option.key]}
+                  onCheckedChange={(checked) =>
+                    setSettings((current) => ({
+                      ...current,
+                      [option.key]: checked,
+                    }))
+                  }
+                />
+                <span>
+                  <span className="block text-sm font-medium text-white">
+                    {option.label}
+                  </span>
+                  <span className="block text-xs text-slate-400">
+                    {option.hint}
+                  </span>
+                </span>
+              </label>
+            ))}
+          </div>
         </div>
 
         <Button

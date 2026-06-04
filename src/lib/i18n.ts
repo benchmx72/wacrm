@@ -850,6 +850,16 @@ export const dictionaries = {
         notifyStaff: "Notificar al staff",
         notifyStaffHint:
           "Envia correo interno al equipo o al correo configurado.",
+        remindersTitle: "Recordatorios automaticos",
+        remindersDescription:
+          "El cron crea avisos unicos para citas confirmadas con fecha y hora.",
+        reminder24h: "Aviso 24 horas antes",
+        reminder24hHint: "Envia el primer recordatorio al entrar en la ventana de 24 horas.",
+        reminder2h: "Aviso 2 horas antes",
+        reminder2hHint: "Envia un recordatorio cercano antes de la cita.",
+        reminderChannel: "Avisar por el canal",
+        reminderChannelHint:
+          "En Telegram envia tambien al chat. WhatsApp requerira una plantilla aprobada.",
         save: "Guardar configuracion",
         saved: "Configuracion de citas guardada",
         failedLoad: "No se pudo cargar la configuracion de citas",
@@ -1769,6 +1779,16 @@ export const dictionaries = {
         notifyStaff: "Notificar a equipe",
         notifyStaffHint:
           "Envia e-mail interno para a equipe ou para o e-mail configurado.",
+        remindersTitle: "Lembretes automaticos",
+        remindersDescription:
+          "O cron cria avisos unicos para consultas confirmadas com data e horario.",
+        reminder24h: "Aviso 24 horas antes",
+        reminder24hHint: "Envia o primeiro lembrete ao entrar na janela de 24 horas.",
+        reminder2h: "Aviso 2 horas antes",
+        reminder2hHint: "Envia um lembrete proximo antes da consulta.",
+        reminderChannel: "Avisar pelo canal",
+        reminderChannelHint:
+          "No Telegram tambem envia ao chat. WhatsApp exigira um modelo aprovado.",
         save: "Salvar configuracao",
         saved: "Configuracao de consultas salva",
         failedLoad: "Nao foi possivel carregar a configuracao de consultas",

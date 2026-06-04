@@ -15,6 +15,9 @@ export type AppointmentSettings = {
   staff_notification_email: string | null
   notify_client: boolean
   notify_staff: boolean
+  reminder_24h_enabled: boolean
+  reminder_2h_enabled: boolean
+  reminder_channel_enabled: boolean
 }
 
 type AppointmentSettingsRow = Partial<AppointmentSettings> | null
@@ -36,6 +39,9 @@ export function normalizeAppointmentSettings(
       row?.staff_notification_email?.trim().toLowerCase() || null,
     notify_client: row?.notify_client ?? true,
     notify_staff: row?.notify_staff ?? true,
+    reminder_24h_enabled: row?.reminder_24h_enabled ?? true,
+    reminder_2h_enabled: row?.reminder_2h_enabled ?? true,
+    reminder_channel_enabled: row?.reminder_channel_enabled ?? true,
   }
 }
 
@@ -46,7 +52,7 @@ export async function loadAppointmentSettings(
   const { data, error } = await supabase
     .from('appointment_settings')
     .select(
-      'default_timezone, default_duration_minutes, default_location, staff_notification_email, notify_client, notify_staff',
+      'default_timezone, default_duration_minutes, default_location, staff_notification_email, notify_client, notify_staff, reminder_24h_enabled, reminder_2h_enabled, reminder_channel_enabled',
     )
     .eq('user_id', accountOwnerId)
     .maybeSingle()

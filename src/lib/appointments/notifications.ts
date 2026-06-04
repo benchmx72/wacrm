@@ -12,6 +12,8 @@ export type AppointmentNotificationEvent =
   | 'updated'
   | 'cancelled'
   | 'completed'
+  | 'reminder_24h'
+  | 'reminder_2h'
 
 type AppointmentNotificationRow = {
   id: string
@@ -59,6 +61,167 @@ const EVENT_LABELS: Record<AppointmentNotificationEvent, string> = {
   updated: 'Cita actualizada',
   cancelled: 'Cita cancelada',
   completed: 'Cita completada',
+  reminder_24h: 'Recordatorio: tu cita es en menos de 24 horas',
+  reminder_2h: 'Recordatorio: tu cita es en 2 horas',
+}
+
+export async function queueDueAppointmentReminders(supabase: SupabaseClient) {
+  const now = new Date()
+  const in24Hours = new Date(now.getTime() + 24 * 60 * 60_000)
+  const { data, error } = await supabase
+    .from('appointments')
+    .select(
+      'id, user_id, title, appointment_type, status, preferred_time, scheduled_start, scheduled_end, timezone, location, notes, contact_id, contact:contacts(name, phone, email)',
+    )
+    .eq('status', 'confirmed')
+    .gt('scheduled_start', now.toISOString())
+    .lte('scheduled_start', in24Hours.toISOString())
+
+  if (error) throw error
+
+  let queued = 0
+  for (const raw of data ?? []) {
+    const contact = Array.isArray(raw.contact) ? raw.contact[0] : raw.contact
+    const appointment = { ...raw, contact } as AppointmentNotificationRow & {
+      user_id: string
+    }
+    const start = new Date(appointment.scheduled_start ?? '')
+    if (Number.isNaN(start.getTime())) continue
+
+    const settings = await loadAppointmentSettings(supabase, appointment.user_id)
+    const { data: ownerProfile } = await supabase
+      .from('profiles')
+      .select('messaging_channel')
+      .eq('id', appointment.user_id)
+      .maybeSingle()
+    const hoursUntil = (start.getTime() - now.getTime()) / 3_600_000
+    const eventType: AppointmentNotificationEvent | null =
+      hoursUntil <= 2 && settings.reminder_2h_enabled
+        ? 'reminder_2h'
+        : hoursUntil > 2 && settings.reminder_24h_enabled
+          ? 'reminder_24h'
+          : null
+
+    if (!eventType) continue
+
+    const recipients = await loadRecipients(
+      supabase,
+      appointment.user_id,
+      appointment,
+      settings,
+    )
+    const rows: Array<Record<string, unknown>> = []
+
+    for (const recipient of recipients) {
+      const content = buildNotificationContent(
+        appointment,
+        eventType,
+        recipient,
+        settings,
+      )
+      rows.push({
+        user_id: appointment.user_id,
+        appointment_id: appointment.id,
+        contact_id: appointment.contact_id ?? null,
+        recipient_type: recipient.type,
+        recipient_email: recipient.email,
+        channel: 'email',
+        event_type: eventType,
+        subject: content.subject,
+        body_text: content.body,
+        ics_content: content.ics,
+        status: recipient.email ? 'pending' : 'skipped',
+        error_message: recipient.email ? null : 'Recipient email missing',
+        dedupe_key: reminderDedupeKey(
+          appointment,
+          eventType,
+          recipient.type,
+          'email',
+          recipient.email ?? 'missing',
+        ),
+        metadata: {
+          appointment_status: appointment.status,
+          html_body: content.html,
+          timezone: appointment.timezone ?? settings.default_timezone,
+          reminder: true,
+        },
+      })
+    }
+
+    if (
+      settings.reminder_channel_enabled &&
+      ownerProfile?.messaging_channel === 'telegram' &&
+      appointment.contact_id &&
+      appointment.contact?.phone?.startsWith('tg:')
+    ) {
+      const content = buildNotificationContent(
+        appointment,
+        eventType,
+        {
+          type: 'client',
+          email: null,
+          name: appointment.contact.name ?? 'Cliente',
+        },
+        settings,
+      )
+      rows.push({
+        user_id: appointment.user_id,
+        appointment_id: appointment.id,
+        contact_id: appointment.contact_id,
+        recipient_type: 'client',
+        recipient_email: null,
+        channel: 'telegram',
+        event_type: eventType,
+        subject: content.subject,
+        body_text: content.body,
+        ics_content: null,
+        status: 'pending',
+        error_message: null,
+        dedupe_key: reminderDedupeKey(
+          appointment,
+          eventType,
+          'client',
+          'telegram',
+          appointment.contact.phone,
+        ),
+        metadata: {
+          appointment_status: appointment.status,
+          timezone: appointment.timezone ?? settings.default_timezone,
+          reminder: true,
+        },
+      })
+    }
+
+    if (rows.length === 0) continue
+    const uniqueRows = Array.from(
+      new Map(rows.map((row) => [String(row.dedupe_key), row])).values(),
+    )
+    const { data: inserted, error: insertError } = await supabase
+      .from('appointment_notifications')
+      .upsert(uniqueRows, { onConflict: 'dedupe_key', ignoreDuplicates: true })
+      .select('id')
+    if (insertError) throw insertError
+    queued += inserted?.length ?? 0
+  }
+
+  return queued
+}
+
+function reminderDedupeKey(
+  appointment: AppointmentNotificationRow,
+  eventType: AppointmentNotificationEvent,
+  recipientType: Recipient['type'],
+  channel: 'email' | 'telegram',
+  recipientKey: string,
+) {
+  return [
+    appointment.id,
+    appointment.scheduled_start,
+    eventType,
+    recipientType,
+    channel,
+    recipientKey,
+  ].join(':')
 }
 
 export async function queueAppointmentNotifications({
