@@ -3,6 +3,7 @@ import { createAgentResponse } from "@/lib/ai/openai";
 import { buildAgentInstructions, DEFAULT_AGENT_PROMPT } from "@/lib/ai/prompt";
 import { createClient } from "@/lib/supabase/server";
 import { getServerAccountOwnerId } from "@/lib/auth/account";
+import { buildContactAppointmentContext } from "@/lib/appointments/context";
 
 type InboxMessage = {
   sender_type: "customer" | "agent" | "bot";
@@ -101,8 +102,15 @@ export async function POST(request: Request) {
   }
 
   const contact = conversation.contact as
-    | { name?: string | null; phone?: string | null; email?: string | null; company?: string | null }
+    | { id?: string | null; name?: string | null; phone?: string | null; email?: string | null; company?: string | null }
     | null;
+  const appointmentContext = contact?.id
+    ? await buildContactAppointmentContext({
+        supabase,
+        accountOwnerId,
+        contactId: contact.id,
+      })
+    : "";
 
   const contactContext = [
     "Inbox reply suggestion mode:",
@@ -116,6 +124,8 @@ export async function POST(request: Request) {
     contact?.email ? `- Email: ${contact.email}` : "",
     contact?.company ? `- Company: ${contact.company}` : "",
     `- Conversation status: ${conversation.status}`,
+    "",
+    appointmentContext,
   ]
     .filter(Boolean)
     .join("\n");

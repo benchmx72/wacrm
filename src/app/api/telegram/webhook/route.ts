@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAuthAdmin } from '@/lib/auth/admin-client';
 import { createAgentResponse } from '@/lib/ai/openai';
 import { buildAgentInstructions, DEFAULT_AGENT_PROMPT } from '@/lib/ai/prompt';
+import { buildContactAppointmentContext } from '@/lib/appointments/context';
 import { decrypt } from '@/lib/whatsapp/encryption';
 
 const DEFAULT_PIPELINE_STAGES = [
@@ -750,6 +751,12 @@ async function maybeRunTelegramAgent(input: {
     }));
 
   try {
+    const appointmentContext = await buildContactAppointmentContext({
+      supabase: admin,
+      accountOwnerId: input.userId,
+      contactId: input.contact.id,
+    });
+
     const result = await createAgentResponse({
       model: activeAgent.model,
       instructions: buildAgentInstructions({
@@ -765,6 +772,7 @@ async function maybeRunTelegramAgent(input: {
             input.leadData.realPhone ? '' : 'real phone',
           ].filter(Boolean).join(', ') || 'none'}`,
           'Channel: Telegram',
+          appointmentContext,
         ].join('\n'),
         sessionSummary,
         mode: 'live_messaging',

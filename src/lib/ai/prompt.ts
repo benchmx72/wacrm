@@ -26,6 +26,7 @@ export function buildAgentInstructions(input: {
         "- You are responding to a real customer message through the CRM messaging channel.",
         "- Keep responses concise, natural, helpful, and in the customer's language.",
         "- Do not claim actions were completed unless the CRM actually performed them.",
+        "- For appointment dates and times, use only the appointment information supplied in CRM context. Never invent scheduling details.",
         "- If a human should take over, say so briefly and ask for the minimum useful next detail.",
       ].join("\n"),
     );
