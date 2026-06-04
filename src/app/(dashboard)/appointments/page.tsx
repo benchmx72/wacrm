@@ -7,6 +7,8 @@ import {
   CircleSlash,
   ClipboardCheck,
   Pencil,
+  RotateCcw,
+  X,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { Appointment } from "@/types";
@@ -25,10 +27,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 type AppointmentWithJoins = Appointment & {
   contact?: { name?: string | null; phone?: string | null } | null;
   deal?: { title?: string | null } | null;
+  change_requests?: AppointmentChangeRequest[];
+};
+
+type AppointmentChangeRequest = {
+  id: string;
+  request_type: "cancel" | "reschedule";
+  status: "pending" | "approved" | "rejected";
+  requested_text: string;
+  requested_time?: string | null;
+  created_at: string;
 };
 
 type EditForm = {
@@ -95,12 +108,17 @@ export default function AppointmentsPage() {
     useState<AppointmentWithJoins | null>(null);
   const [editForm, setEditForm] = useState<EditForm | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
+  const [resolvingRequestId, setResolvingRequestId] = useState<string | null>(
+    null,
+  );
 
   const fetchAppointments = useCallback(async () => {
     setLoading(true);
     const { data } = await supabase
       .from("appointments")
-      .select("*, contact:contacts(name, phone), deal:deals(title)")
+      .select(
+        "*, contact:contacts(name, phone), deal:deals(title), change_requests:appointment_change_requests(id, request_type, status, requested_text, requested_time, created_at)",
+      )
       .order("created_at", { ascending: false });
     setAppointments((data ?? []) as AppointmentWithJoins[]);
     setLoading(false);
@@ -160,6 +178,47 @@ export default function AppointmentsPage() {
       );
     }
     setUpdatingId(null);
+  }
+
+  async function resolveChangeRequest(
+    appointmentId: string,
+    requestId: string,
+    action: "approve" | "reject",
+  ) {
+    if (!canManageAppointments || resolvingRequestId) return;
+    setResolvingRequestId(requestId);
+
+    const res = await fetch(`/api/appointments/requests/${requestId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action }),
+    });
+    const data = await res.json().catch(() => ({}));
+
+    if (res.ok) {
+      setAppointments((current) =>
+        current.map((appointment) =>
+          appointment.id === appointmentId
+            ? {
+                ...appointment,
+                ...(data.appointment ?? {}),
+                change_requests: (appointment.change_requests ?? []).filter(
+                  (item) => item.id !== requestId,
+                ),
+              }
+          : appointment,
+        ),
+      );
+      toast.success(
+        action === "approve"
+          ? t("appointments.changeRequests.approved")
+          : t("appointments.changeRequests.rejected"),
+      );
+    } else {
+      toast.error(data.error || t("appointments.changeRequests.failed"));
+    }
+
+    setResolvingRequestId(null);
   }
 
   function openEditor(appointment: AppointmentWithJoins) {
@@ -312,6 +371,62 @@ export default function AppointmentsPage() {
                       {appointment.notes}
                     </p>
                   )}
+                  {(appointment.change_requests ?? [])
+                    .filter((request) => request.status === "pending")
+                    .map((request) => (
+                      <div
+                        key={request.id}
+                        className="mt-3 max-w-3xl rounded-lg border border-amber-500/30 bg-amber-500/10 p-3"
+                      >
+                        <div className="flex items-center gap-2 text-sm font-semibold text-amber-200">
+                          {request.request_type === "cancel" ? (
+                            <CircleSlash className="size-4" />
+                          ) : (
+                            <RotateCcw className="size-4" />
+                          )}
+                          {request.request_type === "cancel"
+                            ? t("appointments.changeRequests.cancelTitle")
+                            : t("appointments.changeRequests.rescheduleTitle")}
+                        </div>
+                        <p className="mt-1 text-sm text-slate-200">
+                          {request.requested_text}
+                        </p>
+                        {canManageAppointments && (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <Button
+                              size="sm"
+                              disabled={resolvingRequestId === request.id}
+                              onClick={() =>
+                                resolveChangeRequest(
+                                  appointment.id,
+                                  request.id,
+                                  "approve",
+                                )
+                              }
+                            >
+                              <CheckCircle2 className="size-4" />
+                              {t("appointments.changeRequests.approve")}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={resolvingRequestId === request.id}
+                              onClick={() =>
+                                resolveChangeRequest(
+                                  appointment.id,
+                                  request.id,
+                                  "reject",
+                                )
+                              }
+                              className="border-slate-700"
+                            >
+                              <X className="size-4" />
+                              {t("appointments.changeRequests.reject")}
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
                 </div>
                 {canManageAppointments && (
                   <div className="flex flex-wrap items-start gap-2">

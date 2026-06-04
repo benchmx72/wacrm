@@ -3,6 +3,10 @@ import { supabaseAuthAdmin } from '@/lib/auth/admin-client';
 import { createAgentResponse } from '@/lib/ai/openai';
 import { buildAgentInstructions, DEFAULT_AGENT_PROMPT } from '@/lib/ai/prompt';
 import { buildContactAppointmentContext } from '@/lib/appointments/context';
+import {
+  appointmentChangeRequestInstructions,
+  captureAppointmentChangeRequest,
+} from '@/lib/appointments/change-requests';
 import { decrypt } from '@/lib/whatsapp/encryption';
 
 const DEFAULT_PIPELINE_STAGES = [
@@ -158,6 +162,15 @@ async function processTelegramUpdate(update: TelegramUpdate) {
     customerText: contentText,
   });
 
+  const appointmentChangeRequest = await captureAppointmentChangeRequest({
+    supabase: admin,
+    accountOwnerId: userId,
+    contactId: contact.id,
+    conversationId: conversation.id,
+    customerText: contentText,
+    source: 'telegram',
+  });
+
   if (update.message) {
     await maybeRunTelegramAgent({
       userId,
@@ -167,6 +180,9 @@ async function processTelegramUpdate(update: TelegramUpdate) {
       leadData,
       conversation,
       customerText: contentText,
+      appointmentChangeRequestContext: appointmentChangeRequestInstructions(
+        appointmentChangeRequest,
+      ),
     });
   }
 }
@@ -632,6 +648,7 @@ async function maybeRunTelegramAgent(input: {
   leadData: LeadData;
   conversation: ConversationRow;
   customerText: string;
+  appointmentChangeRequestContext?: string;
 }) {
   const admin = supabaseAuthAdmin();
 
@@ -773,6 +790,7 @@ async function maybeRunTelegramAgent(input: {
           ].filter(Boolean).join(', ') || 'none'}`,
           'Channel: Telegram',
           appointmentContext,
+          input.appointmentChangeRequestContext || '',
         ].join('\n'),
         sessionSummary,
         mode: 'live_messaging',

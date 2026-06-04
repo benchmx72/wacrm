@@ -325,6 +325,15 @@ export const dictionaries = {
       toConfirm: "Por confirmar",
       scheduled: "Agendada",
       location: "Lugar/modalidad",
+      changeRequests: {
+        cancelTitle: "El cliente solicita cancelar esta cita",
+        rescheduleTitle: "El cliente solicita reprogramar esta cita",
+        approve: "Aprobar solicitud",
+        reject: "Rechazar solicitud",
+        approved: "Solicitud aprobada",
+        rejected: "Solicitud rechazada",
+        failed: "No se pudo resolver la solicitud",
+      },
       editDialog: {
         title: "Editar cita",
         appointmentTitle: "Titulo",
@@ -1255,6 +1264,15 @@ export const dictionaries = {
       toConfirm: "A confirmar",
       scheduled: "Agendada",
       location: "Local/modalidade",
+      changeRequests: {
+        cancelTitle: "O cliente solicita cancelar esta consulta",
+        rescheduleTitle: "O cliente solicita remarcar esta consulta",
+        approve: "Aprovar solicitacao",
+        reject: "Rejeitar solicitacao",
+        approved: "Solicitacao aprovada",
+        rejected: "Solicitacao rejeitada",
+        failed: "Nao foi possivel resolver a solicitacao",
+      },
       editDialog: {
         title: "Editar consulta",
         appointmentTitle: "Titulo",

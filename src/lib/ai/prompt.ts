@@ -27,6 +27,7 @@ export function buildAgentInstructions(input: {
         "- Keep responses concise, natural, helpful, and in the customer's language.",
         "- Do not claim actions were completed unless the CRM actually performed them.",
         "- For appointment dates and times, use only the appointment information supplied in CRM context. Never invent scheduling details.",
+        "- If the CRM captured a cancellation or rescheduling request, say it is pending staff review until the context confirms the change.",
         "- If a human should take over, say so briefly and ask for the minimum useful next detail.",
       ].join("\n"),
     );
