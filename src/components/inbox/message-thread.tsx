@@ -22,6 +22,8 @@ import {
   Clock,
   ArrowLeft,
   RefreshCw,
+  Bot,
+  BotOff,
 } from "lucide-react";
 import { format, isToday, isYesterday, differenceInHours } from "date-fns";
 import { es, ptBR } from "date-fns/locale";
@@ -65,6 +67,10 @@ interface MessageThreadProps {
   onAssignChange: (
     conversationId: string,
     assignedAgentId: string | null,
+  ) => void;
+  onAiPauseChange?: (
+    conversationId: string,
+    updates: Partial<Conversation>,
   ) => void;
   /**
    * On mobile, the thread is shown full-screen with the conversation list
@@ -160,6 +166,7 @@ export function MessageThread({
   onUpdateMessage,
   onStatusChange,
   onAssignChange,
+  onAiPauseChange,
   onBack,
   resyncToken = 0,
   onRefresh,
@@ -179,6 +186,7 @@ export function MessageThread({
   // parent's resyncToken); the 700ms spin is just feedback so the click
   // doesn't feel like a no-op. Cleared via the timer ref on unmount.
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isTogglingAi, setIsTogglingAi] = useState(false);
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     return () => {
@@ -493,6 +501,12 @@ export function MessageThread({
         // with the real DB row. If realtime hasn't arrived yet, at least
         // flip status to 'sent' so the UI stops showing "sending".
         onUpdateMessage(tempId, { status: "sent" });
+        onAiPauseChange?.(conversation.id, {
+          ai_paused: true,
+          ai_paused_at: new Date().toISOString(),
+          ai_paused_by: user?.id ?? null,
+          ai_pause_reason: "human_reply",
+        });
       } catch (err) {
         console.error("Failed to send message:", err);
         const reason = err instanceof Error ? err.message : "network error";
@@ -500,7 +514,7 @@ export function MessageThread({
         onUpdateMessage(tempId, { status: "failed" });
       }
     },
-    [conversation, isTelegramContact, onNewMessage, onUpdateMessage, t]
+    [conversation, isTelegramContact, onAiPauseChange, onNewMessage, onUpdateMessage, t, user?.id]
   );
 
   const handleStatusChange = useCallback(
@@ -565,6 +579,12 @@ export function MessageThread({
         }
 
         onUpdateMessage(tempId, { status: "sent" });
+        onAiPauseChange?.(conversation.id, {
+          ai_paused: true,
+          ai_paused_at: new Date().toISOString(),
+          ai_paused_by: user?.id ?? null,
+          ai_pause_reason: "human_reply",
+        });
       } catch (err) {
         console.error("Failed to send template:", err);
         const reason = err instanceof Error ? err.message : "network error";
@@ -572,8 +592,44 @@ export function MessageThread({
         onUpdateMessage(tempId, { status: "failed" });
       }
     },
-    [conversation, onNewMessage, onUpdateMessage, t],
+    [conversation, onAiPauseChange, onNewMessage, onUpdateMessage, t, user?.id],
   );
+
+  const handleAiPauseToggle = useCallback(async () => {
+    if (!conversation || isTogglingAi) return;
+
+    const nextPaused = !conversation.ai_paused;
+    setIsTogglingAi(true);
+
+    try {
+      const res = await fetch(`/api/conversations/${conversation.id}/ai`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          paused: nextPaused,
+          reason: nextPaused ? "manual" : null,
+        }),
+      });
+      const payload = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(payload?.error || `HTTP ${res.status}`);
+      }
+
+      const updates = payload?.conversation ?? { ai_paused: nextPaused };
+      onAiPauseChange?.(conversation.id, updates);
+      toast.success(
+        nextPaused
+          ? t("inbox.thread.aiPausedToast")
+          : t("inbox.thread.aiResumedToast"),
+      );
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : "network error";
+      toast.error(t("inbox.thread.aiToggleFailed", { reason }));
+    } finally {
+      setIsTogglingAi(false);
+    }
+  }, [conversation, isTogglingAi, onAiPauseChange, t]);
 
   const handleSuggestReply = useCallback(async () => {
     if (!conversation) return "";
@@ -810,6 +866,35 @@ export function MessageThread({
               />
             </button>
           )}
+
+          <button
+            type="button"
+            onClick={handleAiPauseToggle}
+            disabled={isTogglingAi}
+            aria-pressed={conversation.ai_paused ?? false}
+            title={
+              conversation.ai_paused
+                ? t("inbox.thread.resumeAiHint")
+                : t("inbox.thread.pauseAiHint")
+            }
+            className={cn(
+              "inline-flex h-7 items-center justify-center gap-1 rounded-md border px-2 text-xs transition-colors disabled:opacity-60",
+              conversation.ai_paused
+                ? "border-amber-500/40 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20"
+                : "border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-white",
+            )}
+          >
+            {conversation.ai_paused ? (
+              <BotOff className="h-3 w-3" />
+            ) : (
+              <Bot className="h-3 w-3" />
+            )}
+            <span className="hidden sm:inline">
+              {conversation.ai_paused
+                ? t("inbox.thread.resumeAi")
+                : t("inbox.thread.pauseAi")}
+            </span>
+          </button>
 
           {/* Status dropdown */}
           <DropdownMenu>

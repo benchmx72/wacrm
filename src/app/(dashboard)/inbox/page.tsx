@@ -538,6 +538,18 @@ export default function InboxPage() {
   // conversation slides the thread in; the thread's back button pops
   // it back to the list. On lg+ both panes render side-by-side as
   // before, unchanged.
+  const handleAiPauseChange = useCallback(
+    (conversationId: string, updates: Partial<Conversation>) => {
+      setConversations((prev) =>
+        prev.map((c) => (c.id === conversationId ? { ...c, ...updates } : c)),
+      );
+      setActiveConversation((prev) =>
+        prev?.id === conversationId ? { ...prev, ...updates } : prev,
+      );
+    },
+    [],
+  );
+
   const hasActiveConv = !!activeConversation;
 
   return (
@@ -593,6 +605,7 @@ export default function InboxPage() {
             onUpdateMessage={handleUpdateMessage}
             onStatusChange={handleStatusChange}
             onAssignChange={handleAssignChange}
+            onAiPauseChange={handleAiPauseChange}
             onBack={handleCloseConversation}
             resyncToken={resyncToken}
             onRefresh={handleManualRefresh}

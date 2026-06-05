@@ -238,6 +238,13 @@ export const dictionaries = {
         unassign: "Quitar asignación",
         noMessagesYet: "Aún no hay mensajes",
         sendTemplateToStart: "Envía una plantilla para iniciar la conversación",
+        pauseAi: "Pausar IA",
+        resumeAi: "Activar IA",
+        pauseAiHint: "Pausar respuestas automáticas en esta conversación",
+        resumeAiHint: "Reactivar respuestas automáticas en esta conversación",
+        aiPausedToast: "IA pausada para esta conversación.",
+        aiResumedToast: "IA reactivada para esta conversación.",
+        aiToggleFailed: "No se pudo cambiar el estado de la IA: {reason}",
       },
       composer: {
         sessionExpired:
@@ -1238,6 +1245,13 @@ export const dictionaries = {
         unassign: "Remover atribuição",
         noMessagesYet: "Ainda não há mensagens",
         sendTemplateToStart: "Envie um modelo para iniciar a conversa",
+        pauseAi: "Pausar IA",
+        resumeAi: "Ativar IA",
+        pauseAiHint: "Pausar respostas automáticas nesta conversa",
+        resumeAiHint: "Reativar respostas automáticas nesta conversa",
+        aiPausedToast: "IA pausada para esta conversa.",
+        aiResumedToast: "IA reativada para esta conversa.",
+        aiToggleFailed: "Não foi possível alterar o estado da IA: {reason}",
       },
       composer: {
         sessionExpired:

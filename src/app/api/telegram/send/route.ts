@@ -183,14 +183,30 @@ export async function POST(request: Request) {
       );
     }
 
+    const sentAt = new Date().toISOString();
+
     await supabase
       .from('conversations')
       .update({
         last_message_text: content_text.trim(),
-        last_message_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        last_message_at: sentAt,
+        updated_at: sentAt,
       })
       .eq('id', conversation_id);
+
+    const { error: aiPauseError } = await supabase
+      .from('conversations')
+      .update({
+        ai_paused: true,
+        ai_paused_at: sentAt,
+        ai_paused_by: user.id,
+        ai_pause_reason: 'human_reply',
+      })
+      .eq('id', conversation_id);
+
+    if (aiPauseError) {
+      console.warn('[telegram/send] AI pause skipped:', aiPauseError.message);
+    }
 
     try {
       await supabaseAdmin()

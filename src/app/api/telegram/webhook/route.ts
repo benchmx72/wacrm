@@ -172,6 +172,13 @@ async function processTelegramUpdate(update: TelegramUpdate) {
   });
 
   if (update.message) {
+    if (conversation.ai_paused) {
+      console.log('[telegram/agent] skipped because AI is paused', {
+        conversation_id: conversation.id,
+      });
+      return;
+    }
+
     await maybeRunTelegramAgent({
       userId,
       botToken: config.bot_token as string,
@@ -453,6 +460,7 @@ async function findOrCreateTelegramContact(
 interface ConversationRow {
   id: string;
   unread_count?: number | null;
+  ai_paused?: boolean | null;
 }
 
 interface AgentRow {
@@ -485,7 +493,7 @@ async function findOrCreateConversation(
   const admin = supabaseAuthAdmin();
   const { data: existing, error: findError } = await admin
     .from('conversations')
-    .select('id, unread_count')
+    .select('id, unread_count, ai_paused')
     .eq('user_id', userId)
     .eq('contact_id', contactId)
     .maybeSingle();
@@ -503,7 +511,7 @@ async function findOrCreateConversation(
       user_id: userId,
       contact_id: contactId,
     })
-    .select('id, unread_count')
+    .select('id, unread_count, ai_paused')
     .single();
 
   if (createError) {

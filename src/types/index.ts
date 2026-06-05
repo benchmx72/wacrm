@@ -82,6 +82,10 @@ export interface Conversation {
   contact_id: string;
   status: ConversationStatus;
   assigned_agent_id?: string;
+  ai_paused?: boolean;
+  ai_paused_at?: string | null;
+  ai_paused_by?: string | null;
+  ai_pause_reason?: string | null;
   last_message_text?: string;
   last_message_at?: string;
   unread_count: number;

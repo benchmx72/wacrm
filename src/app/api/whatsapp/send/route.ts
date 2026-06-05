@@ -215,14 +215,30 @@ export async function POST(request: Request) {
         )
       }
 
+      const sentAt = new Date().toISOString()
+
       await supabase
         .from('conversations')
         .update({
           last_message_text: content_text.trim(),
-          last_message_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
+          last_message_at: sentAt,
+          updated_at: sentAt,
         })
         .eq('id', conversation_id)
+
+      const { error: aiPauseError } = await supabase
+        .from('conversations')
+        .update({
+          ai_paused: true,
+          ai_paused_at: sentAt,
+          ai_paused_by: user.id,
+          ai_pause_reason: 'human_reply',
+        })
+        .eq('id', conversation_id)
+
+      if (aiPauseError) {
+        console.warn('[whatsapp/send -> telegram] AI pause skipped:', aiPauseError.message)
+      }
 
       try {
         await supabaseAdmin()
@@ -430,14 +446,30 @@ export async function POST(request: Request) {
     }
 
     // Update conversation
+    const sentAt = new Date().toISOString()
+
     await supabase
       .from('conversations')
       .update({
         last_message_text: content_text || `[${message_type}]`,
-        last_message_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        last_message_at: sentAt,
+        updated_at: sentAt,
       })
       .eq('id', conversation_id)
+
+    const { error: aiPauseError } = await supabase
+      .from('conversations')
+      .update({
+        ai_paused: true,
+        ai_paused_at: sentAt,
+        ai_paused_by: user.id,
+        ai_pause_reason: 'human_reply',
+      })
+      .eq('id', conversation_id)
+
+    if (aiPauseError) {
+      console.warn('[whatsapp/send] AI pause skipped:', aiPauseError.message)
+    }
 
     // Pause any active Flow run for this contact — the agent stepping
     // in is the strongest "yield, human is here" signal. See PR #2
