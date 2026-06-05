@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { getServerAccountOwnerId } from '@/lib/auth/account'
 import { userHasPermission } from '@/lib/auth/server-permissions'
 import { queueAppointmentNotifications } from '@/lib/appointments/notifications'
+import { loadAppointmentSettings } from '@/lib/appointments/settings'
+import { parseRequestedAppointmentTime } from '@/lib/appointments/parse-requested-time'
 
 export async function PATCH(
   request: Request,
@@ -71,15 +73,35 @@ export async function PATCH(
     return NextResponse.json({ error: 'Appointment not found' }, { status: 404 })
   }
 
-  const update =
-    changeRequest.request_type === 'cancel'
-      ? { status: 'cancelled' }
-      : {
-          status: 'proposed',
-          preferred_time: changeRequest.requested_time ?? changeRequest.requested_text,
-          scheduled_start: null,
-          scheduled_end: null,
-        }
+  let update:
+    | { status: 'cancelled' }
+    | {
+        status: 'proposed' | 'confirmed'
+        preferred_time: string
+        scheduled_start: string | null
+        scheduled_end: string | null
+      }
+
+  if (changeRequest.request_type === 'cancel') {
+    update = { status: 'cancelled' }
+  } else {
+    const preferredTime = changeRequest.requested_time ?? changeRequest.requested_text
+    const settings = await loadAppointmentSettings(supabase, accountOwnerId)
+    const timezone =
+      (appointment.timezone as string | null)?.trim() || settings.default_timezone
+    const parsed = parseRequestedAppointmentTime({
+      text: preferredTime,
+      timezone,
+      durationMinutes: settings.default_duration_minutes,
+    })
+
+    update = {
+      status: parsed ? 'confirmed' : 'proposed',
+      preferred_time: preferredTime,
+      scheduled_start: parsed?.scheduled_start ?? null,
+      scheduled_end: parsed?.scheduled_end ?? null,
+    }
+  }
 
   const { data: updatedAppointment, error: updateError } = await supabase
     .from('appointments')
