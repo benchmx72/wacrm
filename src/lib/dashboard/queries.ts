@@ -13,6 +13,7 @@ import type {
   ConversationsSeriesPoint,
   DashboardAppointment,
   MetricsBundle,
+  OperationalAlert,
   PipelineDonutData,
   PipelineStageSlice,
   ResponseTimeBucket,
@@ -185,6 +186,96 @@ export async function loadUpcomingAppointments(
       contactPhone: contact?.phone ?? null,
     }
   })
+}
+
+// --- 1c. Operational alerts -------------------------------------------
+
+export async function loadOperationalAlerts(
+  db: DB,
+  limit = 6,
+): Promise<OperationalAlert[]> {
+  const [requestsRes, failedNotificationsRes] = await Promise.all([
+    db
+      .from('appointment_change_requests')
+      .select('id, requested_text, requested_time, created_at, appointment:appointments(title, contact:contacts(name, phone))')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+      .limit(limit),
+    db
+      .from('appointment_notifications')
+      .select('id, recipient_email, subject, error_message, updated_at, created_at')
+      .eq('status', 'failed')
+      .order('updated_at', { ascending: false })
+      .limit(limit),
+  ])
+
+  if (requestsRes.error) throw requestsRes.error
+  if (failedNotificationsRes.error) throw failedNotificationsRes.error
+
+  const alerts: OperationalAlert[] = []
+
+  for (const row of (requestsRes.data ?? []) as unknown as Array<{
+    id: string
+    requested_text: string
+    requested_time: string | null
+    created_at: string
+    appointment:
+      | {
+          title: string | null
+          contact:
+            | { name: string | null; phone: string | null }[]
+            | { name: string | null; phone: string | null }
+            | null
+        }[]
+      | {
+          title: string | null
+          contact:
+            | { name: string | null; phone: string | null }[]
+            | { name: string | null; phone: string | null }
+            | null
+        }
+      | null
+  }>) {
+    const appointment = Array.isArray(row.appointment)
+      ? row.appointment[0]
+      : row.appointment
+    const contact = Array.isArray(appointment?.contact)
+      ? appointment?.contact[0]
+      : appointment?.contact
+
+    alerts.push({
+      id: `request-${row.id}`,
+      kind: 'appointment_request',
+      title: appointment?.title ?? '',
+      primary: contact?.name ?? contact?.phone ?? null,
+      detail: row.requested_time || row.requested_text,
+      at: row.created_at,
+      href: '/appointments',
+    })
+  }
+
+  for (const row of (failedNotificationsRes.data ?? []) as Array<{
+    id: string
+    recipient_email: string | null
+    subject: string | null
+    error_message: string | null
+    updated_at: string | null
+    created_at: string
+  }>) {
+    alerts.push({
+      id: `notification-${row.id}`,
+      kind: 'notification_failed',
+      title: row.subject ?? '',
+      primary: row.recipient_email,
+      detail: row.error_message,
+      at: row.updated_at ?? row.created_at,
+      href: '/appointments',
+    })
+  }
+
+  return alerts
+    .sort((a, b) => (a.at > b.at ? -1 : a.at < b.at ? 1 : 0))
+    .slice(0, limit)
 }
 
 // --- 2. Conversations over time ---------------------------------------

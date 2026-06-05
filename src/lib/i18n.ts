@@ -88,6 +88,16 @@ export const dictionaries = {
         conversations: "Conversaciones",
         contacts: "Contactos",
       },
+      operational: {
+        title: "Alertas operativas",
+        subtitle: "Solicitudes y notificaciones que requieren atencion",
+        appointmentRequest: "Solicitud de cita pendiente",
+        notificationFailed: "Correo de cita fallido",
+        withoutTitle: "Sin titulo",
+        emptyTitle: "Todo en orden",
+        emptyHint:
+          "No hay solicitudes de cita pendientes ni correos fallidos.",
+      },
       appointments: {
         title: "Citas pendientes",
         subtitle: "Propuestas y confirmadas que requieren seguimiento",
@@ -1043,6 +1053,16 @@ export const dictionaries = {
         subtitle: "Conversas e contatos detectados por plataforma",
         conversations: "Conversas",
         contacts: "Contatos",
+      },
+      operational: {
+        title: "Alertas operacionais",
+        subtitle: "Solicitacoes e notificacoes que precisam de atencao",
+        appointmentRequest: "Solicitacao de consulta pendente",
+        notificationFailed: "E-mail de consulta com falha",
+        withoutTitle: "Sem titulo",
+        emptyTitle: "Tudo em ordem",
+        emptyHint:
+          "Nao ha solicitacoes de consulta pendentes nem e-mails com falha.",
       },
       appointments: {
         title: "Consultas pendentes",

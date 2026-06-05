@@ -18,6 +18,7 @@ import {
   loadChannelBreakdown,
   loadConversationsSeries,
   loadMetrics,
+  loadOperationalAlerts,
   loadPipelineDonut,
   loadResponseTime,
   loadUpcomingAppointments,
@@ -28,6 +29,7 @@ import type {
   ConversationsSeriesPoint,
   DashboardAppointment,
   MetricsBundle,
+  OperationalAlert,
   PipelineDonutData,
   ResponseTimeSummary,
 } from '@/lib/dashboard/types'
@@ -41,6 +43,7 @@ import { ResponseTimeChart } from '@/components/dashboard/response-time-chart'
 import { ActivityFeed } from '@/components/dashboard/activity-feed'
 import { ChannelBreakdown } from '@/components/dashboard/channel-breakdown'
 import { UpcomingAppointments } from '@/components/dashboard/upcoming-appointments'
+import { OperationalAlerts } from '@/components/dashboard/operational-alerts'
 
 type RangeDays = 7 | 30 | 90
 
@@ -75,6 +78,9 @@ export default function DashboardPage() {
   const [appointments, setAppointments] = useState<DashboardAppointment[] | null>(null)
   const [appointmentsLoading, setAppointmentsLoading] = useState(true)
 
+  const [alerts, setAlerts] = useState<OperationalAlert[] | null>(null)
+  const [alertsLoading, setAlertsLoading] = useState(true)
+
   const loadAll = useCallback(() => {
     const db = createClient()
 
@@ -105,6 +111,11 @@ export default function DashboardPage() {
       .then((a) => setAppointments(a))
       .catch((err) => console.error('[dashboard] appointments failed:', err))
       .finally(() => setAppointmentsLoading(false))
+
+    void loadOperationalAlerts(db)
+      .then((a) => setAlerts(a))
+      .catch((err) => console.error('[dashboard] operational alerts failed:', err))
+      .finally(() => setAlertsLoading(false))
 
     void loadResponseTime(db)
       .then((r) => setResponseTime(r))
@@ -241,6 +252,9 @@ export default function DashboardPage() {
 
       {/* Quick actions */}
       <QuickActions />
+
+      {/* Operational alerts */}
+      <OperationalAlerts alerts={alerts} loading={alertsLoading} />
 
       {/* Channel source */}
       <ChannelBreakdown data={channels} loading={channelsLoading} />

@@ -63,6 +63,20 @@ export interface ChannelBreakdown {
   }
 }
 
+export type OperationalAlertKind =
+  | 'appointment_request'
+  | 'notification_failed'
+
+export interface OperationalAlert {
+  id: string
+  kind: OperationalAlertKind
+  title: string
+  primary: string | null
+  detail: string | null
+  at: string
+  href: string
+}
+
 export interface DashboardAppointment {
   id: string
   title: string
