@@ -891,6 +891,25 @@ export const dictionaries = {
           "Minutos usados cuando una cita no trae hora de fin.",
         defaultLocation: "Lugar/modalidad predeterminado",
         defaultLocationPlaceholder: "Ej. Consultorio, Zoom, llamada...",
+        availabilityTitle: "Disponibilidad de atencion",
+        availabilityDescription:
+          "Define los dias y horarios que el cliente puede solicitar para citas.",
+        availabilityDays: "Dias disponibles",
+        availabilityStart: "Hora inicial",
+        availabilityEnd: "Hora final",
+        bufferMinutes: "Margen entre citas",
+        noAvailabilityMessage: "Mensaje fuera de disponibilidad",
+        noAvailabilityPlaceholder:
+          "Ej. En este horario no tenemos disponibilidad. Te puedo ofrecer el proximo horario laboral.",
+        days: {
+          monday: "Lun",
+          tuesday: "Mar",
+          wednesday: "Mie",
+          thursday: "Jue",
+          friday: "Vie",
+          saturday: "Sab",
+          sunday: "Dom",
+        },
         staffEmail: "Correo del staff para avisos",
         staffEmailPlaceholder: "equipo@empresa.com",
         staffEmailHint:
@@ -1871,6 +1890,25 @@ export const dictionaries = {
           "Minutos usados quando uma consulta nao tem horario de fim.",
         defaultLocation: "Local/modalidade padrao",
         defaultLocationPlaceholder: "Ex. Consultorio, Zoom, chamada...",
+        availabilityTitle: "Disponibilidade de atendimento",
+        availabilityDescription:
+          "Defina os dias e horarios que o cliente pode solicitar para consultas.",
+        availabilityDays: "Dias disponiveis",
+        availabilityStart: "Hora inicial",
+        availabilityEnd: "Hora final",
+        bufferMinutes: "Intervalo entre consultas",
+        noAvailabilityMessage: "Mensagem fora da disponibilidade",
+        noAvailabilityPlaceholder:
+          "Ex. Nesse horario nao temos disponibilidade. Posso oferecer o proximo horario comercial.",
+        days: {
+          monday: "Seg",
+          tuesday: "Ter",
+          wednesday: "Qua",
+          thursday: "Qui",
+          friday: "Sex",
+          saturday: "Sab",
+          sunday: "Dom",
+        },
         staffEmail: "E-mail da equipe para avisos",
         staffEmailPlaceholder: "equipe@empresa.com",
         staffEmailHint:

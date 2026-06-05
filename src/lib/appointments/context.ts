@@ -1,5 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { loadAppointmentSettings } from '@/lib/appointments/settings'
+import {
+  type AppointmentSettings,
+  loadAppointmentSettings,
+} from '@/lib/appointments/settings'
 
 type AppointmentContextRow = {
   id: string
@@ -29,6 +32,16 @@ const STATUS_LABELS: Record<AppointmentContextRow['status'], string> = {
   cancelled: 'cancelada',
   completed: 'completada',
 }
+
+const DAY_LABELS = [
+  'domingo',
+  'lunes',
+  'martes',
+  'miercoles',
+  'jueves',
+  'viernes',
+  'sabado',
+]
 
 export async function buildContactAppointmentContext(input: {
   supabase: SupabaseClient
@@ -101,10 +114,15 @@ export async function buildContactAppointmentContext(input: {
     ((pendingRequests ?? []) as AppointmentChangeRequestRow[]).map(
       formatPendingRequest,
     ),
+    settings ? formatAvailability(settings) : null,
   )
 }
 
-function appointmentInstructions(appointments: string[], pendingRequests: string[]) {
+function appointmentInstructions(
+  appointments: string[],
+  pendingRequests: string[],
+  availability: string | null = null,
+) {
   return [
     'Appointment information from the CRM:',
     ...(appointments.length > 0
@@ -116,6 +134,9 @@ function appointmentInstructions(appointments: string[], pendingRequests: string
       ? pendingRequests
       : ['- No pending cancellation or rescheduling request is registered.']),
     '',
+    'Configured appointment availability:',
+    availability ?? '- No appointment availability settings were found.',
+    '',
     'Appointment response rules:',
     '- Treat the CRM appointment information above as the only reliable source for appointment dates and times.',
     '- If the customer asks when their appointment is, answer with the exact saved date, time, timezone, and location when available.',
@@ -123,6 +144,27 @@ function appointmentInstructions(appointments: string[], pendingRequests: string
     '- If no active appointment is registered, say so and offer to help schedule one.',
     '- Never invent, infer, or promise an appointment date or time that is not present above.',
     '- If a pending change request exists, clearly say it is awaiting staff review and do not claim the appointment was already changed.',
+    '- Use the configured availability as business rules when discussing new appointment requests.',
+    '- If the customer asks for a day or time outside availability, do not accept or confirm it. Explain that the staff must review it or suggest an available business window.',
+    '- Even when the requested time is inside availability, present it as a request until the staff confirms it in the CRM.',
+  ].join('\n')
+}
+
+function formatAvailability(settings: AppointmentSettings) {
+  const days = settings.availability_days
+    .map((day) => DAY_LABELS[day])
+    .filter(Boolean)
+    .join(', ')
+
+  return [
+    `- Available days: ${days || 'not configured'}.`,
+    `- Available hours: ${settings.availability_start_time} to ${settings.availability_end_time}.`,
+    `- Default appointment duration: ${settings.default_duration_minutes} minutes.`,
+    `- Buffer between appointments: ${settings.buffer_minutes} minutes.`,
+    `- Default timezone: ${settings.default_timezone}.`,
+    settings.no_availability_message
+      ? `- Message to use outside availability: ${settings.no_availability_message}`
+      : '- No custom outside-availability message is configured.',
   ].join('\n')
 }
 

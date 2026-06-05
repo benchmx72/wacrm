@@ -8,7 +8,9 @@ import {
 import { createClient } from '@/lib/supabase/server'
 
 const SELECT =
-  'user_id, default_timezone, default_duration_minutes, default_location, staff_notification_email, notify_client, notify_staff, reminder_24h_enabled, reminder_2h_enabled, reminder_channel_enabled'
+  'user_id, default_timezone, default_duration_minutes, default_location, staff_notification_email, notify_client, notify_staff, reminder_24h_enabled, reminder_2h_enabled, reminder_channel_enabled, availability_days, availability_start_time, availability_end_time, buffer_minutes, no_availability_message'
+
+const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/
 
 function cleanText(value: unknown, max = 500) {
   if (typeof value !== 'string') return null
@@ -27,6 +29,17 @@ function isValidTimezone(value: string) {
 
 function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+}
+
+function normalizeAvailabilityDays(value: unknown) {
+  if (!Array.isArray(value)) return [1, 2, 3, 4, 5]
+  return Array.from(
+    new Set(
+      value
+        .map((day) => Number(day))
+        .filter((day) => Number.isInteger(day) && day >= 0 && day <= 6),
+    ),
+  ).sort((a, b) => a - b)
 }
 
 async function getContext() {
@@ -78,7 +91,17 @@ export async function PATCH(request: Request) {
       ? body.default_timezone.trim()
       : ''
   const duration = Number(body?.default_duration_minutes)
+  const bufferMinutes = Number(body?.buffer_minutes)
   const staffEmail = cleanText(body?.staff_notification_email, 254)?.toLowerCase()
+  const availabilityDays = normalizeAvailabilityDays(body?.availability_days)
+  const availabilityStartTime =
+    typeof body?.availability_start_time === 'string'
+      ? body.availability_start_time.trim()
+      : ''
+  const availabilityEndTime =
+    typeof body?.availability_end_time === 'string'
+      ? body.availability_end_time.trim()
+      : ''
 
   if (!timezone || !isValidTimezone(timezone)) {
     return NextResponse.json({ error: 'Invalid timezone' }, { status: 400 })
@@ -86,6 +109,22 @@ export async function PATCH(request: Request) {
 
   if (!Number.isFinite(duration) || duration < 5 || duration > 480) {
     return NextResponse.json({ error: 'Invalid duration' }, { status: 400 })
+  }
+
+  if (availabilityDays.length === 0) {
+    return NextResponse.json({ error: 'Invalid availability days' }, { status: 400 })
+  }
+
+  if (!TIME_PATTERN.test(availabilityStartTime) || !TIME_PATTERN.test(availabilityEndTime)) {
+    return NextResponse.json({ error: 'Invalid availability hours' }, { status: 400 })
+  }
+
+  if (availabilityStartTime >= availabilityEndTime) {
+    return NextResponse.json({ error: 'Availability end time must be after start time' }, { status: 400 })
+  }
+
+  if (!Number.isFinite(bufferMinutes) || bufferMinutes < 0 || bufferMinutes > 240) {
+    return NextResponse.json({ error: 'Invalid buffer minutes' }, { status: 400 })
   }
 
   if (staffEmail && !isValidEmail(staffEmail)) {
@@ -103,6 +142,11 @@ export async function PATCH(request: Request) {
     reminder_24h_enabled: body?.reminder_24h_enabled !== false,
     reminder_2h_enabled: body?.reminder_2h_enabled !== false,
     reminder_channel_enabled: body?.reminder_channel_enabled !== false,
+    availability_days: availabilityDays,
+    availability_start_time: availabilityStartTime,
+    availability_end_time: availabilityEndTime,
+    buffer_minutes: Math.round(bufferMinutes),
+    no_availability_message: cleanText(body?.no_availability_message, 1000),
   }
 
   const { data, error } = await context.supabase

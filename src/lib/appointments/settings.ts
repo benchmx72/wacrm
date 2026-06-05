@@ -18,9 +18,29 @@ export type AppointmentSettings = {
   reminder_24h_enabled: boolean
   reminder_2h_enabled: boolean
   reminder_channel_enabled: boolean
+  availability_days: number[]
+  availability_start_time: string
+  availability_end_time: string
+  buffer_minutes: number
+  no_availability_message: string | null
 }
 
 type AppointmentSettingsRow = Partial<AppointmentSettings> | null
+
+const DEFAULT_AVAILABILITY_DAYS = [1, 2, 3, 4, 5]
+const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/
+
+function normalizeAvailabilityDays(value: unknown) {
+  if (!Array.isArray(value)) return DEFAULT_AVAILABILITY_DAYS
+  const days = value
+    .map((day) => Number(day))
+    .filter((day) => Number.isInteger(day) && day >= 0 && day <= 6)
+  return Array.from(new Set(days)).sort((a, b) => a - b)
+}
+
+function normalizeTime(value: unknown, fallback: string) {
+  return typeof value === 'string' && TIME_PATTERN.test(value) ? value : fallback
+}
 
 export function normalizeAppointmentSettings(
   row?: AppointmentSettingsRow,
@@ -42,6 +62,17 @@ export function normalizeAppointmentSettings(
     reminder_24h_enabled: row?.reminder_24h_enabled ?? true,
     reminder_2h_enabled: row?.reminder_2h_enabled ?? true,
     reminder_channel_enabled: row?.reminder_channel_enabled ?? true,
+    availability_days: normalizeAvailabilityDays(row?.availability_days),
+    availability_start_time: normalizeTime(row?.availability_start_time, '09:00'),
+    availability_end_time: normalizeTime(row?.availability_end_time, '17:00'),
+    buffer_minutes:
+      Number.isFinite(Number(row?.buffer_minutes)) &&
+      Number(row?.buffer_minutes) >= 0 &&
+      Number(row?.buffer_minutes) <= 240
+        ? Number(row?.buffer_minutes)
+        : 0,
+    no_availability_message:
+      row?.no_availability_message?.trim() || null,
   }
 }
 
@@ -52,7 +83,7 @@ export async function loadAppointmentSettings(
   const { data, error } = await supabase
     .from('appointment_settings')
     .select(
-      'default_timezone, default_duration_minutes, default_location, staff_notification_email, notify_client, notify_staff, reminder_24h_enabled, reminder_2h_enabled, reminder_channel_enabled',
+      'default_timezone, default_duration_minutes, default_location, staff_notification_email, notify_client, notify_staff, reminder_24h_enabled, reminder_2h_enabled, reminder_channel_enabled, availability_days, availability_start_time, availability_end_time, buffer_minutes, no_availability_message',
     )
     .eq('user_id', accountOwnerId)
     .maybeSingle()
