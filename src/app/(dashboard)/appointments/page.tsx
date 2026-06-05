@@ -2,10 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  AlertCircle,
   CalendarDays,
   CheckCircle2,
   CircleSlash,
   ClipboardCheck,
+  History,
+  Mail,
   Pencil,
   RotateCcw,
   X,
@@ -33,6 +36,7 @@ type AppointmentWithJoins = Appointment & {
   contact?: { name?: string | null; phone?: string | null } | null;
   deal?: { title?: string | null } | null;
   change_requests?: AppointmentChangeRequest[];
+  notifications?: AppointmentNotification[];
 };
 
 type AppointmentChangeRequest = {
@@ -41,7 +45,29 @@ type AppointmentChangeRequest = {
   status: "pending" | "approved" | "rejected";
   requested_text: string;
   requested_time?: string | null;
+  resolved_at?: string | null;
   created_at: string;
+  updated_at?: string | null;
+};
+
+type AppointmentNotification = {
+  id: string;
+  status: "pending" | "sending" | "skipped" | "sent" | "failed";
+  recipient_type: "client" | "staff";
+  recipient_email?: string | null;
+  subject?: string | null;
+  error_message?: string | null;
+  created_at: string;
+  updated_at?: string | null;
+};
+
+type AppointmentActivity = {
+  id: string;
+  date: string;
+  title: string;
+  description: string;
+  icon: "request" | "notification" | "warning";
+  tone: string;
 };
 
 type EditForm = {
@@ -117,7 +143,7 @@ export default function AppointmentsPage() {
     const { data } = await supabase
       .from("appointments")
       .select(
-        "*, contact:contacts(name, phone), deal:deals(title), change_requests:appointment_change_requests(id, request_type, status, requested_text, requested_time, created_at)",
+        "*, contact:contacts(name, phone), deal:deals(title), change_requests:appointment_change_requests(id, request_type, status, requested_text, requested_time, resolved_at, created_at, updated_at), notifications:appointment_notifications(id, status, recipient_type, recipient_email, subject, error_message, created_at, updated_at)",
       )
       .order("created_at", { ascending: false });
     setAppointments((data ?? []) as AppointmentWithJoins[]);
@@ -158,6 +184,67 @@ export default function AppointmentsPage() {
     completed: t("appointments.statuses.completed"),
   };
 
+  const requestStatusLabels: Record<AppointmentChangeRequest["status"], string> = {
+    pending: t("appointments.activity.requestPending"),
+    approved: t("appointments.activity.requestApproved"),
+    rejected: t("appointments.activity.requestRejected"),
+  };
+
+  const notificationStatusLabels: Record<AppointmentNotification["status"], string> = {
+    pending: t("appointments.activity.notificationPending"),
+    sending: t("appointments.activity.notificationSending"),
+    skipped: t("appointments.activity.notificationSkipped"),
+    sent: t("appointments.activity.notificationSent"),
+    failed: t("appointments.activity.notificationFailed"),
+  };
+
+  const recipientLabels: Record<AppointmentNotification["recipient_type"], string> = {
+    client: t("appointments.activity.client"),
+    staff: t("appointments.activity.staff"),
+  };
+
+  function buildActivity(appointment: AppointmentWithJoins): AppointmentActivity[] {
+    const requests = (appointment.change_requests ?? []).map((request) => ({
+      id: `request-${request.id}`,
+      date: request.resolved_at ?? request.updated_at ?? request.created_at,
+      title:
+        request.request_type === "cancel"
+          ? t("appointments.activity.cancelRequest")
+          : t("appointments.activity.rescheduleRequest"),
+      description: `${requestStatusLabels[request.status]}: ${
+        request.requested_time || request.requested_text
+      }`,
+      icon: "request" as const,
+      tone:
+        request.status === "pending"
+          ? "text-amber-300"
+          : request.status === "approved"
+            ? "text-emerald-300"
+            : "text-red-300",
+    }));
+
+    const notifications = (appointment.notifications ?? []).map((notification) => ({
+      id: `notification-${notification.id}`,
+      date: notification.updated_at ?? notification.created_at,
+      title: `${t("appointments.activity.notification")}: ${
+        notificationStatusLabels[notification.status]
+      }`,
+      description: [
+        recipientLabels[notification.recipient_type],
+        notification.recipient_email,
+        notification.error_message,
+      ]
+        .filter(Boolean)
+        .join(" - "),
+      icon: notification.status === "failed" ? ("warning" as const) : ("notification" as const),
+      tone: notification.status === "failed" ? "text-red-300" : "text-sky-300",
+    }));
+
+    return [...requests, ...notifications]
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 5);
+  }
+
   async function updateStatus(id: string, status: Appointment["status"]) {
     if (!canManageAppointments) return;
     if (updatingId) return;
@@ -176,12 +263,12 @@ export default function AppointmentsPage() {
             : appointment,
         ),
       );
+      await fetchAppointments();
     }
     setUpdatingId(null);
   }
 
   async function resolveChangeRequest(
-    appointmentId: string,
     requestId: string,
     action: "approve" | "reject",
   ) {
@@ -196,19 +283,7 @@ export default function AppointmentsPage() {
     const data = await res.json().catch(() => ({}));
 
     if (res.ok) {
-      setAppointments((current) =>
-        current.map((appointment) =>
-          appointment.id === appointmentId
-            ? {
-                ...appointment,
-                ...(data.appointment ?? {}),
-                change_requests: (appointment.change_requests ?? []).filter(
-                  (item) => item.id !== requestId,
-                ),
-              }
-          : appointment,
-        ),
-      );
+      await fetchAppointments();
       toast.success(
         action === "approve"
           ? t("appointments.changeRequests.approved")
@@ -253,6 +328,7 @@ export default function AppointmentsPage() {
             : appointment,
         ),
       );
+      await fetchAppointments();
       setEditingAppointment(null);
       setEditForm(null);
     }
@@ -398,7 +474,6 @@ export default function AppointmentsPage() {
                               disabled={resolvingRequestId === request.id}
                               onClick={() =>
                                 resolveChangeRequest(
-                                  appointment.id,
                                   request.id,
                                   "approve",
                                 )
@@ -413,7 +488,6 @@ export default function AppointmentsPage() {
                               disabled={resolvingRequestId === request.id}
                               onClick={() =>
                                 resolveChangeRequest(
-                                  appointment.id,
                                   request.id,
                                   "reject",
                                 )
@@ -427,6 +501,54 @@ export default function AppointmentsPage() {
                         )}
                       </div>
                     ))}
+                  {buildActivity(appointment).length > 0 && (
+                    <details className="mt-3 max-w-3xl rounded-lg border border-slate-800 bg-slate-950/50 px-3 py-2">
+                      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-xs font-semibold text-slate-300 marker:hidden">
+                        <span className="flex items-center gap-2">
+                          <History className="size-4 text-primary" />
+                          {t("appointments.activity.title")}
+                        </span>
+                        <span className="text-[11px] font-normal text-slate-500">
+                          {t("appointments.activity.latest")}
+                        </span>
+                      </summary>
+                      <div className="mt-3 space-y-2">
+                        {buildActivity(appointment).map((item) => {
+                          const Icon =
+                            item.icon === "request"
+                              ? RotateCcw
+                              : item.icon === "warning"
+                                ? AlertCircle
+                                : Mail;
+
+                          return (
+                            <div
+                              key={item.id}
+                              className="grid gap-2 rounded-md border border-slate-800/80 bg-slate-900/60 p-2 text-xs sm:grid-cols-[1fr_auto]"
+                            >
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 font-semibold text-slate-200">
+                                  <Icon className={cn("size-3.5 shrink-0", item.tone)} />
+                                  <span className="truncate">{item.title}</span>
+                                </div>
+                                <p className="mt-1 line-clamp-2 text-slate-400">
+                                  {item.description}
+                                </p>
+                              </div>
+                              <time className="text-[11px] text-slate-500">
+                                {new Date(item.date).toLocaleString(locale, {
+                                  dateStyle: "short",
+                                  timeStyle: "short",
+                                  timeZone:
+                                    appointment.timezone || DEFAULT_APPOINTMENT_TIMEZONE,
+                                })}
+                              </time>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </details>
+                  )}
                 </div>
                 {canManageAppointments && (
                   <div className="flex flex-wrap items-start gap-2">
