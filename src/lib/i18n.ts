@@ -323,6 +323,21 @@ export const dictionaries = {
       filters: {
         all: "Todas",
       },
+      views: {
+        list: "Lista",
+        calendar: "Calendario",
+      },
+      calendar: {
+        title: "Agenda semanal",
+        subtitle: "Consulta los horarios agendados y abre cualquier cita para editarla.",
+        previous: "Anterior",
+        next: "Siguiente",
+        today: "Hoy",
+        emptyDay: "Sin citas",
+        unscheduledTitle: "Citas sin horario agendado",
+        unscheduledHint:
+          "Aparecen aqui hasta que confirmes fecha y hora en el editor.",
+      },
       actions: {
         confirm: "Confirmar",
         complete: "Completar",
@@ -1288,6 +1303,21 @@ export const dictionaries = {
       },
       filters: {
         all: "Todas",
+      },
+      views: {
+        list: "Lista",
+        calendar: "Calendario",
+      },
+      calendar: {
+        title: "Agenda semanal",
+        subtitle: "Veja os horarios agendados e abra qualquer consulta para editar.",
+        previous: "Anterior",
+        next: "Seguinte",
+        today: "Hoje",
+        emptyDay: "Sem consultas",
+        unscheduledTitle: "Consultas sem horario agendado",
+        unscheduledHint:
+          "Aparecem aqui ate voce confirmar data e hora no editor.",
       },
       actions: {
         confirm: "Confirmar",

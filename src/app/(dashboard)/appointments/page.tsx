@@ -5,9 +5,13 @@ import {
   AlertCircle,
   CalendarDays,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   CircleSlash,
   ClipboardCheck,
+  Clock,
   History,
+  List,
   Mail,
   Pencil,
   RotateCcw,
@@ -82,6 +86,8 @@ type EditForm = {
   notes: string;
 };
 
+type ViewMode = "list" | "calendar";
+
 const statusTone: Record<Appointment["status"], string> = {
   proposed: "bg-amber-500/15 text-amber-300",
   confirmed: "bg-primary/15 text-primary",
@@ -102,6 +108,27 @@ function toDateTimeLocal(value?: string | null) {
 
 function fromDateTimeLocal(value: string) {
   return value ? new Date(value).toISOString() : null;
+}
+
+function startOfWeek(value: Date) {
+  const date = new Date(value);
+  date.setHours(0, 0, 0, 0);
+  const dayOffset = (date.getDay() + 6) % 7;
+  date.setDate(date.getDate() - dayOffset);
+  return date;
+}
+
+function addDays(value: Date, days: number) {
+  const date = new Date(value);
+  date.setDate(date.getDate() + days);
+  return date;
+}
+
+function dateKey(value: Date) {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function formFromAppointment(appointment: Appointment): EditForm {
@@ -129,6 +156,8 @@ export default function AppointmentsPage() {
   const [appointments, setAppointments] = useState<AppointmentWithJoins[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Appointment["status"] | "all">("all");
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [calendarAnchor, setCalendarAnchor] = useState(() => new Date());
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [editingAppointment, setEditingAppointment] =
     useState<AppointmentWithJoins | null>(null);
@@ -170,6 +199,55 @@ export default function AppointmentsPage() {
       ? appointments
       : appointments.filter((appointment) => appointment.status === filter);
 
+  const weekStart = useMemo(
+    () => startOfWeek(calendarAnchor),
+    [calendarAnchor],
+  );
+
+  const weekDays = useMemo(
+    () => Array.from({ length: 7 }, (_, index) => addDays(weekStart, index)),
+    [weekStart],
+  );
+
+  const scheduledAppointments = useMemo(() => {
+    return filtered
+      .filter((appointment) => appointment.scheduled_start)
+      .sort(
+        (a, b) =>
+          new Date(a.scheduled_start ?? 0).getTime() -
+          new Date(b.scheduled_start ?? 0).getTime(),
+      );
+  }, [filtered]);
+
+  const unscheduledAppointments = useMemo(
+    () => filtered.filter((appointment) => !appointment.scheduled_start),
+    [filtered],
+  );
+
+  const appointmentsByDay = useMemo(() => {
+    const map = new Map<string, AppointmentWithJoins[]>();
+    for (const appointment of scheduledAppointments) {
+      const start = new Date(appointment.scheduled_start ?? "");
+      if (Number.isNaN(start.getTime())) continue;
+      const key = dateKey(start);
+      map.set(key, [...(map.get(key) ?? []), appointment]);
+    }
+    return map;
+  }, [scheduledAppointments]);
+
+  const calendarRangeLabel = useMemo(() => {
+    const start = weekDays[0];
+    const end = weekDays[6];
+    return `${start.toLocaleDateString(locale, {
+      day: "numeric",
+      month: "short",
+    })} - ${end.toLocaleDateString(locale, {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    })}`;
+  }, [locale, weekDays]);
+
   const statusLabels: Record<Appointment["status"], string> = {
     proposed: t("appointments.statuses.proposedPlural"),
     confirmed: t("appointments.statuses.confirmedPlural"),
@@ -202,6 +280,15 @@ export default function AppointmentsPage() {
     client: t("appointments.activity.client"),
     staff: t("appointments.activity.staff"),
   };
+
+  function appointmentTimeLabel(appointment: AppointmentWithJoins) {
+    if (!appointment.scheduled_start) return t("appointments.toConfirm");
+    return new Date(appointment.scheduled_start).toLocaleTimeString(locale, {
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: appointment.timezone || DEFAULT_APPOINTMENT_TIMEZONE,
+    });
+  }
 
   function buildActivity(appointment: AppointmentWithJoins): AppointmentActivity[] {
     const requests = (appointment.change_requests ?? []).map((request) => ({
@@ -367,28 +454,209 @@ export default function AppointmentsPage() {
         ))}
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <Button
-          variant={filter === "all" ? "default" : "outline"}
-          onClick={() => setFilter("all")}
-        >
-          {t("appointments.filters.all")}
-        </Button>
-        {(["proposed", "confirmed", "completed", "cancelled"] as const).map((status) => (
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-2">
           <Button
-            key={status}
-            variant={filter === status ? "default" : "outline"}
-            onClick={() => setFilter(status)}
+            variant={filter === "all" ? "default" : "outline"}
+            onClick={() => setFilter("all")}
           >
-            {statusLabels[status]}
+            {t("appointments.filters.all")}
           </Button>
-        ))}
+          {(["proposed", "confirmed", "completed", "cancelled"] as const).map((status) => (
+            <Button
+              key={status}
+              variant={filter === status ? "default" : "outline"}
+              onClick={() => setFilter(status)}
+            >
+              {statusLabels[status]}
+            </Button>
+          ))}
+        </div>
+
+        <div className="flex rounded-lg border border-slate-800 bg-slate-950 p-1">
+          <Button
+            size="sm"
+            variant={viewMode === "list" ? "default" : "ghost"}
+            onClick={() => setViewMode("list")}
+            className="h-8"
+          >
+            <List className="size-4" />
+            {t("appointments.views.list")}
+          </Button>
+          <Button
+            size="sm"
+            variant={viewMode === "calendar" ? "default" : "ghost"}
+            onClick={() => setViewMode("calendar")}
+            className="h-8"
+          >
+            <CalendarDays className="size-4" />
+            {t("appointments.views.calendar")}
+          </Button>
+        </div>
       </div>
 
       <div className="rounded-xl border border-slate-800 bg-slate-900">
         {loading ? (
           <div className="p-10 text-center text-sm text-slate-400">
             {t("appointments.loading")}
+          </div>
+        ) : viewMode === "calendar" ? (
+          <div className="space-y-4 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-semibold text-white">
+                  {t("appointments.calendar.title")}
+                </h2>
+                <p className="mt-1 text-xs text-slate-400">
+                  {t("appointments.calendar.subtitle")}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-slate-700"
+                  onClick={() => setCalendarAnchor((current) => addDays(current, -7))}
+                >
+                  <ChevronLeft className="size-4" />
+                  {t("appointments.calendar.previous")}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-slate-700"
+                  onClick={() => setCalendarAnchor(new Date())}
+                >
+                  {t("appointments.calendar.today")}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-slate-700"
+                  onClick={() => setCalendarAnchor((current) => addDays(current, 7))}
+                >
+                  {t("appointments.calendar.next")}
+                  <ChevronRight className="size-4" />
+                </Button>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-slate-800 bg-slate-950/50 p-3 text-center text-sm font-semibold text-slate-200">
+              {calendarRangeLabel}
+            </div>
+
+            <div className="grid gap-2 lg:grid-cols-7">
+              {weekDays.map((day) => {
+                const dayAppointments = appointmentsByDay.get(dateKey(day)) ?? [];
+                const isToday = dateKey(day) === dateKey(new Date());
+
+                return (
+                  <div
+                    key={dateKey(day)}
+                    className={cn(
+                      "min-h-44 rounded-lg border bg-slate-950/40 p-3",
+                      isToday ? "border-primary/60" : "border-slate-800",
+                    )}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                          {day.toLocaleDateString(locale, { weekday: "short" })}
+                        </p>
+                        <p className="text-lg font-bold text-white">
+                          {day.toLocaleDateString(locale, {
+                            day: "numeric",
+                            month: "short",
+                          })}
+                        </p>
+                      </div>
+                      <span className="rounded-full bg-slate-800 px-2 py-0.5 text-xs text-slate-300">
+                        {dayAppointments.length}
+                      </span>
+                    </div>
+
+                    <div className="mt-3 space-y-2">
+                      {dayAppointments.length === 0 ? (
+                        <p className="rounded-md border border-dashed border-slate-800 p-3 text-center text-xs text-slate-600">
+                          {t("appointments.calendar.emptyDay")}
+                        </p>
+                      ) : (
+                        dayAppointments.map((appointment) => (
+                          <button
+                            key={appointment.id}
+                            type="button"
+                            onClick={() => openEditor(appointment)}
+                            className="w-full rounded-md border border-slate-800 bg-slate-900 p-2 text-left transition-colors hover:border-primary/60"
+                          >
+                            <div className="flex items-center gap-1.5 text-xs font-semibold text-primary">
+                              <Clock className="size-3.5" />
+                              {appointmentTimeLabel(appointment)}
+                            </div>
+                            <p className="mt-1 line-clamp-2 text-xs font-semibold text-white">
+                              {appointment.title}
+                            </p>
+                            <p className="mt-1 truncate text-[11px] text-slate-400">
+                              {appointment.contact?.name ??
+                                appointment.contact?.phone ??
+                                t("appointments.unnamedContact")}
+                            </p>
+                            <span
+                              className={cn(
+                                "mt-2 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                                statusTone[appointment.status],
+                              )}
+                            >
+                              {singleStatusLabels[appointment.status]}
+                            </span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {unscheduledAppointments.length > 0 && (
+              <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <h3 className="text-sm font-semibold text-white">
+                      {t("appointments.calendar.unscheduledTitle")}
+                    </h3>
+                    <p className="mt-1 text-xs text-slate-400">
+                      {t("appointments.calendar.unscheduledHint")}
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-slate-800 px-2 py-0.5 text-xs text-slate-300">
+                    {unscheduledAppointments.length}
+                  </span>
+                </div>
+                <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                  {unscheduledAppointments.map((appointment) => (
+                    <button
+                      key={appointment.id}
+                      type="button"
+                      onClick={() => openEditor(appointment)}
+                      className="rounded-md border border-slate-800 bg-slate-900 p-3 text-left transition-colors hover:border-primary/60"
+                    >
+                      <p className="truncate text-sm font-semibold text-white">
+                        {appointment.title}
+                      </p>
+                      <p className="mt-1 truncate text-xs text-slate-400">
+                        {appointment.contact?.name ??
+                          appointment.contact?.phone ??
+                          t("appointments.unnamedContact")}
+                      </p>
+                      <p className="mt-1 line-clamp-2 text-xs text-slate-500">
+                        {appointment.preferred_time ?? t("appointments.toConfirm")}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center p-12 text-center">
