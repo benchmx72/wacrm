@@ -24,6 +24,8 @@ import {
   RefreshCw,
   Bot,
   BotOff,
+  CircleCheck,
+  UserRoundCheck,
 } from "lucide-react";
 import { format, isToday, isYesterday, differenceInHours } from "date-fns";
 import { es, ptBR } from "date-fns/locale";
@@ -607,7 +609,7 @@ export function MessageThread({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           paused: nextPaused,
-          reason: nextPaused ? "manual" : null,
+          reason: nextPaused ? "manual" : "human_resolved",
         }),
       });
       const payload = await res.json().catch(() => ({}));
@@ -621,7 +623,7 @@ export function MessageThread({
       toast.success(
         nextPaused
           ? t("inbox.thread.aiPausedToast")
-          : t("inbox.thread.aiResumedToast"),
+          : t("inbox.thread.aiResolvedToast"),
       );
     } catch (err) {
       const reason = err instanceof Error ? err.message : "network error";
@@ -801,6 +803,18 @@ export function MessageThread({
   );
   const assignedAgentId = conversation.assigned_agent_id ?? null;
   const currentAssignee = profiles.find((p) => p.user_id === assignedAgentId);
+  const handoffOwner = profiles.find(
+    (p) => p.user_id === conversation.ai_paused_by,
+  );
+  const handoffOwnerName =
+    handoffOwner?.full_name ||
+    (conversation.ai_paused_by === user?.id ? profile?.full_name : null) ||
+    t("inbox.thread.teamMember");
+  const handoffStartedAt = conversation.ai_paused_at
+    ? format(new Date(conversation.ai_paused_at), "Pp", {
+        locale: dateLocale,
+      })
+    : null;
   const assignLabel = assignedAgentId
     ? (currentAssignee?.full_name ?? t("inbox.thread.assigned"))
     : t("inbox.thread.assign");
@@ -874,7 +888,7 @@ export function MessageThread({
             aria-pressed={conversation.ai_paused ?? false}
             title={
               conversation.ai_paused
-                ? t("inbox.thread.resumeAiHint")
+                ? t("inbox.thread.resolveAndResumeAiHint")
                 : t("inbox.thread.pauseAiHint")
             }
             className={cn(
@@ -885,13 +899,13 @@ export function MessageThread({
             )}
           >
             {conversation.ai_paused ? (
-              <BotOff className="h-3 w-3" />
+              <CircleCheck className="h-3 w-3" />
             ) : (
               <Bot className="h-3 w-3" />
             )}
             <span className="hidden sm:inline">
               {conversation.ai_paused
-                ? t("inbox.thread.resumeAi")
+                ? t("inbox.thread.resolveAndResumeAi")
                 : t("inbox.thread.pauseAi")}
             </span>
           </button>
@@ -979,6 +993,29 @@ export function MessageThread({
           </DropdownMenu>
         </div>
       </div>
+
+      {conversation.ai_paused && (
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-500/20 bg-amber-500/10 px-4 py-2 text-amber-100">
+          <div className="flex min-w-0 items-center gap-2">
+            <UserRoundCheck className="h-4 w-4 flex-shrink-0 text-amber-300" />
+            <div className="min-w-0">
+              <p className="text-xs font-semibold">
+                {t("inbox.thread.humanInterventionActive")}
+              </p>
+              <p className="truncate text-[11px] text-amber-200/80">
+                {t("inbox.thread.humanInterventionHint")}
+                {handoffStartedAt
+                  ? ` ${t("inbox.thread.interventionStartedBy", {
+                      name: handoffOwnerName,
+                      time: handoffStartedAt,
+                    })}`
+                  : ""}
+              </p>
+            </div>
+          </div>
+          <BotOff className="h-4 w-4 flex-shrink-0 text-amber-300" />
+        </div>
+      )}
 
       {/* Messages Area */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4">

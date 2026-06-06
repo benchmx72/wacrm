@@ -206,6 +206,21 @@ export async function POST(request: Request) {
 
     if (aiPauseError) {
       console.warn('[telegram/send] AI pause skipped:', aiPauseError.message);
+    } else if (!conversation.ai_paused) {
+      const { error: eventError } = await supabase
+        .from('conversation_ai_events')
+        .insert({
+          user_id: accountOwnerId,
+          conversation_id,
+          actor_user_id: user.id,
+          event_type: 'paused',
+          reason: 'human_reply',
+          metadata: { source: 'telegram_manual_send' },
+        });
+
+      if (eventError) {
+        console.warn('[telegram/send] AI handoff event skipped:', eventError.message);
+      }
     }
 
     try {

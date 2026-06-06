@@ -247,10 +247,20 @@ export const dictionaries = {
         sendTemplateToStart: "Envía una plantilla para iniciar la conversación",
         pauseAi: "Pausar IA",
         resumeAi: "Activar IA",
+        resolveAndResumeAi: "Resolver y devolver a IA",
         pauseAiHint: "Pausar respuestas automáticas en esta conversación",
         resumeAiHint: "Reactivar respuestas automáticas en esta conversación",
+        resolveAndResumeAiHint:
+          "Cerrar la intervención humana y reactivar respuestas automáticas",
         aiPausedToast: "IA pausada para esta conversación.",
         aiResumedToast: "IA reactivada para esta conversación.",
+        aiResolvedToast:
+          "Intervención resuelta. La IA volvió a quedar activa.",
+        humanInterventionActive: "Atención humana activa",
+        humanInterventionHint:
+          "La IA no responderá hasta que se resuelva la intervención.",
+        interventionStartedBy: "Iniciada por {name} · {time}",
+        teamMember: "un miembro del equipo",
         aiToggleFailed: "No se pudo cambiar el estado de la IA: {reason}",
       },
       composer: {
@@ -1261,10 +1271,20 @@ export const dictionaries = {
         sendTemplateToStart: "Envie um modelo para iniciar a conversa",
         pauseAi: "Pausar IA",
         resumeAi: "Ativar IA",
+        resolveAndResumeAi: "Resolver e devolver para a IA",
         pauseAiHint: "Pausar respostas automáticas nesta conversa",
         resumeAiHint: "Reativar respostas automáticas nesta conversa",
+        resolveAndResumeAiHint:
+          "Encerrar o atendimento humano e reativar respostas automáticas",
         aiPausedToast: "IA pausada para esta conversa.",
         aiResumedToast: "IA reativada para esta conversa.",
+        aiResolvedToast:
+          "Atendimento resolvido. A IA voltou a ficar ativa.",
+        humanInterventionActive: "Atendimento humano ativo",
+        humanInterventionHint:
+          "A IA não responderá até que o atendimento seja resolvido.",
+        interventionStartedBy: "Iniciado por {name} · {time}",
+        teamMember: "um membro da equipe",
         aiToggleFailed: "Não foi possível alterar o estado da IA: {reason}",
       },
       composer: {

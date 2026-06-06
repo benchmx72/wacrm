@@ -86,6 +86,8 @@ export interface Conversation {
   ai_paused_at?: string | null;
   ai_paused_by?: string | null;
   ai_pause_reason?: string | null;
+  ai_last_resolved_at?: string | null;
+  ai_last_resolved_by?: string | null;
   last_message_text?: string;
   last_message_at?: string;
   unread_count: number;
