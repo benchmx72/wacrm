@@ -210,6 +210,13 @@ export const dictionaries = {
         unknown: "Desconocido",
         failedCreateDemo: "No se pudo crear demo",
         demoCreated: "Demo inbox creado",
+        humanAttention: "Humano",
+        humanAttentionHint: "La IA está pausada y esta conversación requiere atención humana",
+        attentionFilter: {
+          all: "Toda la atención",
+          ai: "IA activa",
+          human: "Atención humana",
+        },
       },
       thread: {
         today: "Hoy",
@@ -1217,6 +1224,13 @@ export const dictionaries = {
         unknown: "Desconhecido",
         failedCreateDemo: "Não foi possível criar a demo",
         demoCreated: "Demo inbox criada",
+        humanAttention: "Humano",
+        humanAttentionHint: "A IA está pausada e esta conversa requer atendimento humano",
+        attentionFilter: {
+          all: "Todo atendimento",
+          ai: "IA ativa",
+          human: "Atendimento humano",
+        },
       },
       thread: {
         today: "Hoje",

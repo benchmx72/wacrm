@@ -4,7 +4,14 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import type { Conversation, ConversationStatus } from "@/types";
-import { Bot, BriefcaseBusiness, Search, ChevronDown, Stethoscope } from "lucide-react";
+import {
+  Bot,
+  BotOff,
+  BriefcaseBusiness,
+  Search,
+  ChevronDown,
+  Stethoscope,
+} from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { es, ptBR } from "date-fns/locale";
 import { Input } from "@/components/ui/input";
@@ -46,6 +53,10 @@ const FILTER_OPTIONS: { key: "all" | ConversationStatus; value: ConversationStat
   { key: "closed", value: "closed" },
 ];
 
+type AttentionFilter = "all" | "ai" | "human";
+
+const ATTENTION_FILTER_OPTIONS: AttentionFilter[] = ["all", "ai", "human"];
+
 function filterLabel(
   t: ReturnType<typeof useLanguage>["t"],
   key: "all" | ConversationStatus,
@@ -74,6 +85,8 @@ export function ConversationList({
   const { locale, t } = useLanguage();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<ConversationStatus | "all">("all");
+  const [attentionFilter, setAttentionFilter] =
+    useState<AttentionFilter>("all");
   const [loading, setLoading] = useState(true);
 
   // Keep the latest callback in a ref so the fetch effect below can
@@ -136,6 +149,12 @@ export function ConversationList({
       result = result.filter((c) => c.status === filter);
     }
 
+    if (attentionFilter === "ai") {
+      result = result.filter((c) => !c.ai_paused);
+    } else if (attentionFilter === "human") {
+      result = result.filter((c) => c.ai_paused);
+    }
+
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter((c) => {
@@ -147,7 +166,7 @@ export function ConversationList({
     }
 
     return result;
-  }, [conversations, filter, search]);
+  }, [attentionFilter, conversations, filter, search]);
 
   const handleSearchChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -164,6 +183,7 @@ export function ConversationList({
   );
 
   const activeFilter = FILTER_OPTIONS.find((o) => o.value === filter);
+  const attentionLabel = t(`inbox.list.attentionFilter.${attentionFilter}`);
   const dateLocale = locale === "pt-BR" ? ptBR : es;
 
   return (
@@ -221,31 +241,64 @@ export function ConversationList({
           />
         </div>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger className="inline-flex items-center justify-center h-7 gap-1 px-2 text-xs text-slate-400 hover:text-white rounded-md hover:bg-slate-800">
-              {activeFilter ? filterLabel(t, activeFilter.key) : t("inbox.status.all")}
-              <ChevronDown className="h-3 w-3" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="start"
-            className="border-slate-700 bg-slate-800"
-          >
-            {FILTER_OPTIONS.map((opt) => (
-              <DropdownMenuItem
-                key={opt.value}
-                onClick={() => setFilter(opt.value)}
-                className={cn(
-                  "text-sm",
-                  filter === opt.value
-                    ? "text-primary"
-                    : "text-slate-300"
-                )}
-              >
-                {filterLabel(t, opt.key)}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex items-center gap-1">
+          <DropdownMenu>
+            <DropdownMenuTrigger className="inline-flex h-7 items-center justify-center gap-1 rounded-md px-2 text-xs text-slate-400 hover:bg-slate-800 hover:text-white">
+                {activeFilter ? filterLabel(t, activeFilter.key) : t("inbox.status.all")}
+                <ChevronDown className="h-3 w-3" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="start"
+              className="border-slate-700 bg-slate-800"
+            >
+              {FILTER_OPTIONS.map((opt) => (
+                <DropdownMenuItem
+                  key={opt.value}
+                  onClick={() => setFilter(opt.value)}
+                  className={cn(
+                    "text-sm",
+                    filter === opt.value
+                      ? "text-primary"
+                      : "text-slate-300"
+                  )}
+                >
+                  {filterLabel(t, opt.key)}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger className="inline-flex h-7 min-w-0 items-center justify-center gap-1 rounded-md px-2 text-xs text-slate-400 hover:bg-slate-800 hover:text-white">
+              {attentionFilter === "human" ? (
+                <BotOff className="h-3 w-3 text-amber-400" />
+              ) : (
+                <Bot className="h-3 w-3" />
+              )}
+              <span className="truncate">{attentionLabel}</span>
+              <ChevronDown className="h-3 w-3 shrink-0" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="start"
+              className="border-slate-700 bg-slate-800"
+            >
+              {ATTENTION_FILTER_OPTIONS.map((option) => (
+                <DropdownMenuItem
+                  key={option}
+                  onClick={() => setAttentionFilter(option)}
+                  className={cn(
+                    "text-sm",
+                    attentionFilter === option
+                      ? "text-primary"
+                      : "text-slate-300",
+                  )}
+                >
+                  {t(`inbox.list.attentionFilter.${option}`)}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
       {/* Conversation Items */}
@@ -329,9 +382,20 @@ function ConversationItem({
       {/* Content */}
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
-          <span className="truncate text-sm font-medium text-white">
-            {displayName}
-          </span>
+          <div className="flex min-w-0 items-center gap-1.5">
+            <span className="truncate text-sm font-medium text-white">
+              {displayName}
+            </span>
+            {conversation.ai_paused && (
+              <span
+                className="inline-flex shrink-0 items-center gap-1 rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-medium text-amber-300"
+                title={t("inbox.list.humanAttentionHint")}
+              >
+                <BotOff className="h-2.5 w-2.5" />
+                {t("inbox.list.humanAttention")}
+              </span>
+            )}
+          </div>
           <span className="shrink-0 text-[10px] text-slate-500">{timeAgo}</span>
         </div>
         <div className="mt-0.5 flex items-center justify-between gap-2">
