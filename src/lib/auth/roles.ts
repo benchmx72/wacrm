@@ -69,7 +69,6 @@ const ROLE_PERMISSIONS: Record<AppRole, AppPermission[]> = {
     "view_appointments",
     "view_broadcasts",
     "view_automations",
-    "view_flows",
     "view_settings",
     "manage_contacts",
     "manage_pipelines",
