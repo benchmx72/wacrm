@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAuthAdmin } from '@/lib/auth/admin-client';
-import { createAgentResponse } from '@/lib/ai/openai';
+import { createAgentResponse, transcribeAudio } from '@/lib/ai/openai';
 import { buildAgentInstructions, DEFAULT_AGENT_PROMPT } from '@/lib/ai/prompt';
 import { buildContactAppointmentContext } from '@/lib/appointments/context';
 import {
@@ -8,6 +8,10 @@ import {
   captureAppointmentChangeRequest,
 } from '@/lib/appointments/change-requests';
 import { decrypt } from '@/lib/whatsapp/encryption';
+import {
+  downloadTelegramMedia,
+  prepareTelegramAudioForTranscription,
+} from '@/lib/telegram/media';
 
 const DEFAULT_PIPELINE_STAGES = [
   { name: 'Nuevo lead', color: '#3b82f6', position: 0 },
@@ -42,6 +46,18 @@ interface TelegramMessage {
   date: number;
   text?: string;
   caption?: string;
+  voice?: TelegramAudio;
+  audio?: TelegramAudio;
+}
+
+interface TelegramAudio {
+  file_id: string;
+  file_unique_id: string;
+  duration: number;
+  mime_type?: string;
+  file_size?: number;
+  file_name?: string;
+  title?: string;
 }
 
 interface TelegramUpdate {
@@ -98,7 +114,6 @@ async function processTelegramUpdate(update: TelegramUpdate) {
   const userId = config.user_id as string;
   const contactIdentity = `tg:${message.chat.id}`;
   const contactName = getTelegramContactName(message);
-  const contentText = getTelegramMessageText(message);
   const telegramMessageId = `telegram:${message.chat.id}:${message.message_id}`;
 
   const { data: existingMessage, error: existingMessageError } = await admin
@@ -113,13 +128,24 @@ async function processTelegramUpdate(update: TelegramUpdate) {
   }
   if (existingMessage) return;
 
+  const incoming = await resolveTelegramMessageContent({
+    message,
+    encryptedBotToken: config.bot_token as string,
+  });
+
   const contact = await findOrCreateTelegramContact(
     userId,
     contactIdentity,
     contactName,
   );
   if (!contact) return;
-  const leadData = await captureLeadDataFromText(userId, contact, contentText);
+  const leadData = incoming.canUseAsAgentInput
+    ? await captureLeadDataFromText(userId, contact, incoming.contentText)
+    : {
+        email: contact.email ?? undefined,
+        intent: undefined,
+        realPhone: undefined,
+      };
 
   const conversation = await findOrCreateConversation(userId, contact.id);
   if (!conversation) return;
@@ -128,8 +154,9 @@ async function processTelegramUpdate(update: TelegramUpdate) {
   const { error: insertError } = await admin.from('messages').insert({
     conversation_id: conversation.id,
     sender_type: 'customer',
-    content_type: 'text',
-    content_text: contentText,
+    content_type: incoming.contentType,
+    content_text: incoming.contentText,
+    media_url: incoming.mediaUrl,
     message_id: telegramMessageId,
     status: 'delivered',
     created_at: createdAt,
@@ -143,7 +170,7 @@ async function processTelegramUpdate(update: TelegramUpdate) {
   const { error: updateError } = await admin
     .from('conversations')
     .update({
-      last_message_text: contentText,
+      last_message_text: incoming.previewText,
       last_message_at: createdAt,
       unread_count: (conversation.unread_count ?? 0) + 1,
       updated_at: new Date().toISOString(),
@@ -159,19 +186,21 @@ async function processTelegramUpdate(update: TelegramUpdate) {
     contact,
     conversation,
     leadData,
-    customerText: contentText,
+    customerText: incoming.contentText,
   });
 
-  const appointmentChangeRequest = await captureAppointmentChangeRequest({
-    supabase: admin,
-    accountOwnerId: userId,
-    contactId: contact.id,
-    conversationId: conversation.id,
-    customerText: contentText,
-    source: 'telegram',
-  });
+  const appointmentChangeRequest = incoming.canUseAsAgentInput
+    ? await captureAppointmentChangeRequest({
+        supabase: admin,
+        accountOwnerId: userId,
+        contactId: contact.id,
+        conversationId: conversation.id,
+        customerText: incoming.contentText,
+        source: 'telegram',
+      })
+    : null;
 
-  if (update.message) {
+  if (update.message && incoming.canUseAsAgentInput) {
     if (conversation.ai_paused) {
       console.log('[telegram/agent] skipped because AI is paused', {
         conversation_id: conversation.id,
@@ -186,11 +215,65 @@ async function processTelegramUpdate(update: TelegramUpdate) {
       contact,
       leadData,
       conversation,
-      customerText: contentText,
+      customerText: incoming.contentText,
       appointmentChangeRequestContext: appointmentChangeRequestInstructions(
         appointmentChangeRequest,
       ),
     });
+  }
+}
+
+interface ResolvedTelegramContent {
+  contentType: 'text' | 'audio';
+  contentText: string;
+  previewText: string;
+  mediaUrl?: string;
+  canUseAsAgentInput: boolean;
+}
+
+async function resolveTelegramMessageContent(input: {
+  message: TelegramMessage;
+  encryptedBotToken: string;
+}): Promise<ResolvedTelegramContent> {
+  const audio = input.message.voice ?? input.message.audio;
+  if (!audio) {
+    const contentText = getTelegramMessageText(input.message);
+    return {
+      contentType: 'text',
+      contentText,
+      previewText: contentText,
+      canUseAsAgentInput: Boolean(input.message.text || input.message.caption),
+    };
+  }
+
+  const mediaUrl = `/api/telegram/media/${encodeURIComponent(audio.file_id)}`;
+
+  try {
+    const media = await downloadTelegramMedia({
+      botToken: decrypt(input.encryptedBotToken),
+      fileId: audio.file_id,
+      mimeType: audio.mime_type,
+      fileName: audio.file_name,
+    });
+    const prepared = await prepareTelegramAudioForTranscription(media);
+    const transcript = await transcribeAudio(prepared);
+
+    return {
+      contentType: 'audio',
+      contentText: transcript,
+      previewText: `Audio: ${transcript}`,
+      mediaUrl,
+      canUseAsAgentInput: true,
+    };
+  } catch (error) {
+    console.error('[telegram/webhook] audio transcription failed:', error);
+    return {
+      contentType: 'audio',
+      contentText: 'Mensaje de voz',
+      previewText: 'Mensaje de voz',
+      mediaUrl,
+      canUseAsAgentInput: false,
+    };
   }
 }
 

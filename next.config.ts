@@ -54,6 +54,7 @@ const SECURITY_HEADERS = [
 ] as const;
 
 const nextConfig: NextConfig = {
+  serverExternalPackages: ["ffmpeg-static"],
   /**
    * Cache-Control policy.
    *

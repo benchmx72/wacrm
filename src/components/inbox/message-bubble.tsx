@@ -64,7 +64,10 @@ function MediaImage({ url, alt }: { url: string; alt: string }) {
     if (!url) return;
 
     // Proxy URLs need auth fetch to create blob URL
-    if (url.startsWith("/api/whatsapp/media/")) {
+    if (
+      url.startsWith("/api/whatsapp/media/") ||
+      url.startsWith("/api/telegram/media/")
+    ) {
       try {
         const res = await fetch(url);
         if (!res.ok) throw new Error("Failed to load media");
@@ -118,6 +121,44 @@ function MediaImage({ url, alt }: { url: string; alt: string }) {
   );
 }
 
+function MediaAudio({ url }: { url: string }) {
+  const [src, setSrc] = useState<string | null>(null);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let blobUrl: string | null = null;
+    let cancelled = false;
+
+    async function loadAudio() {
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Failed to load audio");
+        blobUrl = URL.createObjectURL(await res.blob());
+        if (!cancelled) setSrc(blobUrl);
+      } catch {
+        if (!cancelled) setError(true);
+      }
+    }
+
+    loadAudio();
+    return () => {
+      cancelled = true;
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+    };
+  }, [url]);
+
+  if (error) return <MediaUnavailable label="Audio" />;
+  if (!src) {
+    return (
+      <div className="flex h-10 w-60 items-center justify-center rounded-lg bg-slate-700/40">
+        <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  return <audio src={src} controls preload="metadata" className="max-w-60" />;
+}
+
 function MessageContent({ message }: { message: Message }) {
   const { t } = useLanguage();
   switch (message.content_type) {
@@ -166,11 +207,21 @@ function MessageContent({ message }: { message: Message }) {
 
     case "audio":
       return (
-        <div>
+        <div className="space-y-2">
           {message.media_url ? (
-            <audio src={message.media_url} controls className="max-w-60" />
+            <MediaAudio url={message.media_url} />
           ) : (
             <MediaUnavailable label={t("inbox.bubble.audio")} />
+          )}
+          {message.content_text && message.content_text !== "Mensaje de voz" && (
+            <div className="max-w-72 border-t border-white/10 pt-2">
+              <span className="text-[10px] font-semibold uppercase text-white/55">
+                {t("inbox.bubble.transcription")}
+              </span>
+              <p className="mt-0.5 whitespace-pre-wrap break-words text-sm">
+                {message.content_text}
+              </p>
+            </div>
           )}
         </div>
       );

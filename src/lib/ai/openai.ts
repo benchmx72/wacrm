@@ -20,6 +20,61 @@ interface OpenAIResponseBody {
   };
 }
 
+interface OpenAITranscriptionBody {
+  text?: string;
+  error?: {
+    message?: string;
+  };
+}
+
+export async function transcribeAudio(input: {
+  buffer: Buffer;
+  fileName: string;
+  contentType: string;
+}) {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error("OPENAI_API_KEY is not configured");
+  }
+
+  if (input.buffer.byteLength > 25 * 1024 * 1024) {
+    throw new Error("Audio exceeds the 25 MB transcription limit");
+  }
+
+  const form = new FormData();
+  form.append(
+    "file",
+    new Blob([new Uint8Array(input.buffer)], { type: input.contentType }),
+    input.fileName,
+  );
+  form.append(
+    "model",
+    process.env.OPENAI_TRANSCRIPTION_MODEL || "gpt-4o-mini-transcribe",
+  );
+
+  const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: form,
+  });
+  const body = (await response.json().catch(() => ({}))) as OpenAITranscriptionBody;
+
+  if (!response.ok) {
+    throw new Error(
+      body.error?.message ?? `OpenAI transcription failed (${response.status})`,
+    );
+  }
+
+  const text = body.text?.trim();
+  if (!text) {
+    throw new Error("OpenAI returned an empty transcription");
+  }
+
+  return text;
+}
+
 export async function createAgentResponse(input: {
   model: string;
   instructions: string;
