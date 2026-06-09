@@ -8,30 +8,57 @@ import {
   type BuilderInitial,
   type BuilderStep,
 } from "@/components/automations/automation-builder"
+import { useLanguage } from "@/hooks/use-language"
 import { AUTOMATION_TEMPLATES, type TemplateSlug } from "@/lib/automations/templates"
+import type { TranslationKey } from "@/lib/i18n"
 import type { AutomationStepType, AutomationTriggerType } from "@/types"
+
+const TEMPLATE_MESSAGE_KEYS: Record<TemplateSlug, TranslationKey> = {
+  welcome_message: "automations.builder.templateMessages.welcome",
+  out_of_office: "automations.builder.templateMessages.outOfOffice",
+  lead_qualifier: "automations.builder.templateMessages.leadQualifier",
+  follow_up_reminder: "automations.builder.templateMessages.followUpReminder",
+}
 
 export default function NewAutomationPage() {
   const params = useSearchParams()
   const template = params.get("template") as TemplateSlug | null
+  const { t } = useLanguage()
 
   const initial: BuilderInitial = useMemo(() => {
     if (template && AUTOMATION_TEMPLATES[template]) {
-      const t = AUTOMATION_TEMPLATES[template]
+      const definition = AUTOMATION_TEMPLATES[template]
+      const triggerConfig = {
+        ...(definition.trigger_config as Record<string, unknown>),
+      }
+      if (template === "lead_qualifier") {
+        triggerConfig.keywords = t("automations.builder.templateKeywords.leadQualifier")
+          .split(",")
+          .map((keyword) => keyword.trim())
+          .filter(Boolean)
+      }
       const steps = expandFromSeeds(
-        t.steps.map((seed, idx) => ({
+        definition.steps.map((seed, idx) => ({
           index: idx,
           step_type: seed.step_type,
-          step_config: seed.step_config as Record<string, unknown>,
+          step_config:
+            seed.step_type === "send_message"
+              ? {
+                  ...(seed.step_config as Record<string, unknown>),
+                  text: t(TEMPLATE_MESSAGE_KEYS[template]),
+                }
+              : { ...(seed.step_config as Record<string, unknown>) },
           branch: seed.branch ?? null,
           parent_index: seed.parent_index ?? null,
         })),
       )
       return {
-        name: t.name,
-        description: t.description,
-        trigger_type: t.trigger_type,
-        trigger_config: t.trigger_config as Record<string, unknown>,
+        name: t(`automations.templates.${template}.name` as TranslationKey),
+        description: t(
+          `automations.templates.${template}.description` as TranslationKey,
+        ),
+        trigger_type: definition.trigger_type,
+        trigger_config: triggerConfig,
         is_active: false,
         steps,
       }
@@ -44,7 +71,7 @@ export default function NewAutomationPage() {
       is_active: false,
       steps: [],
     }
-  }, [template])
+  }, [template, t])
 
   return <AutomationBuilder initial={initial} />
 }
