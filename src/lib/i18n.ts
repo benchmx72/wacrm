@@ -95,8 +95,7 @@ export const dictionaries = {
         notificationFailed: "Correo de cita fallido",
         withoutTitle: "Sin titulo",
         emptyTitle: "Todo en orden",
-        emptyHint:
-          "No hay solicitudes de cita pendientes ni correos fallidos.",
+        emptyHint: "No hay solicitudes de cita pendientes ni correos fallidos.",
       },
       appointments: {
         title: "Citas pendientes",
@@ -211,7 +210,8 @@ export const dictionaries = {
         failedCreateDemo: "No se pudo crear demo",
         demoCreated: "Demo inbox creado",
         humanAttention: "Humano",
-        humanAttentionHint: "La IA está pausada y esta conversación requiere atención humana",
+        humanAttentionHint:
+          "La IA está pausada y esta conversación requiere atención humana",
         attentionFilter: {
           all: "Toda la atención",
           ai: "IA activa",
@@ -254,8 +254,7 @@ export const dictionaries = {
           "Cerrar la intervención humana y reactivar respuestas automáticas",
         aiPausedToast: "IA pausada para esta conversación.",
         aiResumedToast: "IA reactivada para esta conversación.",
-        aiResolvedToast:
-          "Intervención resuelta. La IA volvió a quedar activa.",
+        aiResolvedToast: "Intervención resuelta. La IA volvió a quedar activa.",
         humanInterventionActive: "Atención humana activa",
         humanInterventionHint:
           "La IA no responderá hasta que se resuelva la intervención.",
@@ -270,7 +269,8 @@ export const dictionaries = {
         suggest: "Sugerir",
         suggesting: "Sugiriendo...",
         sendTemplate: "Enviar plantilla",
-        expiredPlaceholder: "La sesión expiró. Usa una plantilla para responder.",
+        expiredPlaceholder:
+          "La sesión expiró. Usa una plantilla para responder.",
         placeholder: "Escribe un mensaje... (Shift+Enter para nueva línea)",
         quickRepliesHint: "Escribe / para respuestas rápidas",
       },
@@ -354,7 +354,8 @@ export const dictionaries = {
       },
       calendar: {
         title: "Agenda semanal",
-        subtitle: "Consulta los horarios agendados y abre cualquier cita para editarla.",
+        subtitle:
+          "Consulta los horarios agendados y abre cualquier cita para editarla.",
         previous: "Anterior",
         next: "Siguiente",
         today: "Hoy",
@@ -617,7 +618,8 @@ export const dictionaries = {
           personalize: "Personalizar",
           send: "Enviar",
         },
-        nameRequired: "Ponle nombre a la difusión antes de guardar el borrador.",
+        nameRequired:
+          "Ponle nombre a la difusión antes de guardar el borrador.",
         failedDraft: "No se pudo guardar el borrador: {message}",
         draftSaved: "Borrador guardado",
         failedSend: "No se pudo enviar la difusión.",
@@ -691,7 +693,8 @@ export const dictionaries = {
           tags: "Filtrar por etiquetas",
           tagsDescription: "Enfoca contactos con etiquetas específicas",
           customField: "Campo personalizado",
-          customFieldDescription: "Filtra por el valor de un campo personalizado",
+          customFieldDescription:
+            "Filtra por el valor de un campo personalizado",
           csv: "Subir CSV",
           csvDescription: "Sube una lista de números de teléfono",
         },
@@ -786,8 +789,10 @@ export const dictionaries = {
         },
         triggerHints: {
           newMessage: "Se ejecuta con cada mensaje entrante.",
-          firstMessage: "Se ejecuta con el primer mensaje recibido del contacto.",
-          keywordMatch: "Se ejecuta cuando el mensaje contiene palabras definidas.",
+          firstMessage:
+            "Se ejecuta con el primer mensaje recibido del contacto.",
+          keywordMatch:
+            "Se ejecuta cuando el mensaje contiene palabras definidas.",
           newContact: "Se ejecuta al crear un contacto.",
           conversationAssigned: "Se ejecuta al asignar una conversación.",
           tagAdded: "Se ejecuta al agregar una etiqueta.",
@@ -891,7 +896,7 @@ export const dictionaries = {
       failedDelete: "No se pudo eliminar el flujo.",
       deleted: "Flujo eliminado.",
       confirmDelete:
-        "¿Eliminar \"{name}\"? Cualquier ejecución activa terminará inmediatamente.",
+        '¿Eliminar "{name}"? Cualquier ejecución activa terminará inmediatamente.',
       node: "{count} nodo",
       nodes: "{count} nodos",
       run: "{count} ejecución",
@@ -904,6 +909,7 @@ export const dictionaries = {
     },
     nav: {
       dashboard: "Panel",
+      clients: "Clientes",
       inbox: "Bandeja",
       contacts: "Contactos",
       pipelines: "Pipelines",
@@ -917,6 +923,93 @@ export const dictionaries = {
       signOut: "Cerrar sesión",
       beta: "Beta",
     },
+    accountSuspended: {
+      title: "Cuenta suspendida",
+      description:
+        "El acceso a esta cuenta de SophIA CRM está temporalmente suspendido.",
+      contact:
+        "Contacta al administrador del servicio para revisar el estado de la cuenta.",
+      signOut: "Cerrar sesión",
+      signingOut: "Cerrando sesión...",
+    },
+    clients: {
+      title: "Clientes",
+      description: "Administra las cuentas que operan en SophIA CRM.",
+      refresh: "Actualizar",
+      retry: "Reintentar",
+      loading: "Cargando cuentas...",
+      loadError: "No se pudieron cargar las cuentas.",
+      empty: "Aún no hay cuentas cliente.",
+      noAdmin: "Sin administrador",
+      members: "{count} usuarios",
+      activeMembers: "{count} activos",
+      edit: "Editar",
+      summary: {
+        total: "Cuentas totales",
+        active: "Activas",
+        setup: "En configuración",
+        suspended: "Suspendidas",
+      },
+      table: {
+        account: "Cuenta",
+        admin: "Administrador",
+        channel: "Canal",
+        team: "Equipo",
+        status: "Estado",
+        created: "Creada",
+        actions: "Acciones",
+      },
+      statuses: {
+        active: "Activa",
+        setup: "En configuración",
+        suspended: "Suspendida",
+      },
+      channels: {
+        whatsapp: "WhatsApp",
+        telegram: "Telegram",
+      },
+      locales: {
+        spanish: "Español (Latinoamérica)",
+        portuguese: "Português (Brasil)",
+      },
+      editor: {
+        title: "Editar cuenta",
+        description:
+          "Actualiza la configuración comercial y operativa del cliente.",
+        name: "Nombre de la cuenta",
+        industry: "Industria o especialidad",
+        industryPlaceholder: "Ej. Clínica médica",
+        status: "Estado",
+        channel: "Canal de mensajería",
+        locale: "Idioma",
+        timezone: "Zona horaria",
+        admin: "Administrador principal",
+        resendInvitation: "Reenviar invitación",
+        resendingInvitation: "Reenviando...",
+        invitationResent: "Invitación reenviada",
+        invitationLinkCopied:
+          "Supabase no envió el correo; el enlace de invitación fue copiado",
+        invitationResendError: "No se pudo reenviar la invitación.",
+        save: "Guardar cambios",
+        saved: "Cuenta actualizada",
+        saveError: "No se pudo actualizar la cuenta.",
+      },
+      creator: {
+        action: "Nuevo cliente",
+        title: "Crear cuenta cliente",
+        description:
+          "Registra la empresa, define su canal e invita al administrador principal.",
+        adminSection: "Administrador principal",
+        adminDescription:
+          "Recibirá una invitación por correo para establecer su acceso.",
+        adminName: "Nombre del administrador",
+        adminEmail: "Correo del administrador",
+        create: "Crear e invitar",
+        creating: "Creando cuenta...",
+        created: "Cuenta creada e invitación enviada",
+        createError: "No se pudo crear la cuenta.",
+      },
+    },
     settings: {
       title: "Configuración",
       description:
@@ -927,11 +1020,11 @@ export const dictionaries = {
         whatsapp: "Config. WhatsApp",
         telegram: "Config. Telegram",
         templates: "Plantillas",
-          tags: "Etiquetas",
-          appointments: "Citas",
-          ai: "Agente IA",
-          team: "Usuarios",
-          appearance: "Apariencia",
+        tags: "Etiquetas",
+        appointments: "Citas",
+        ai: "Agente IA",
+        team: "Usuarios",
+        appearance: "Apariencia",
       },
       channel: {
         title: "Canal del cliente",
@@ -959,8 +1052,7 @@ export const dictionaries = {
         botToken: "Token del bot",
         botTokenPlaceholder: "Ingresa el token de BotFather",
         botTokenRequired: "El token del bot es obligatorio",
-        reenterToken:
-          "Vuelve a ingresar el token del bot para guardar cambios",
+        reenterToken: "Vuelve a ingresar el token del bot para guardar cambios",
         maskedTokenHint:
           "El token esta oculto por seguridad. Vuelve a ingresarlo para actualizar la configuracion.",
         webhookSecret: "Secreto del webhook",
@@ -1013,7 +1105,7 @@ export const dictionaries = {
         creating: "Creando...",
         deleteTitle: "Eliminar etiqueta",
         deleteDescription:
-          "Seguro que quieres eliminar la etiqueta \"{name}\"? Esto la quitara de todos los contactos. Esta accion no se puede deshacer.",
+          'Seguro que quieres eliminar la etiqueta "{name}"? Esto la quitara de todos los contactos. Esta accion no se puede deshacer.',
         deleteTag: "Eliminar etiqueta",
         deleting: "Eliminando...",
         failedLoad: "No se pudieron cargar las etiquetas",
@@ -1067,7 +1159,8 @@ export const dictionaries = {
         remindersDescription:
           "El cron crea avisos unicos para citas confirmadas con fecha y hora.",
         reminder24h: "Aviso 24 horas antes",
-        reminder24hHint: "Envia el primer recordatorio al entrar en la ventana de 24 horas.",
+        reminder24hHint:
+          "Envia el primer recordatorio al entrar en la ventana de 24 horas.",
         reminder2h: "Aviso 2 horas antes",
         reminder2hHint: "Envia un recordatorio cercano antes de la cita.",
         reminderChannel: "Avisar por el canal",
@@ -1354,7 +1447,8 @@ export const dictionaries = {
         failedCreateDemo: "Não foi possível criar a demo",
         demoCreated: "Demo inbox criada",
         humanAttention: "Humano",
-        humanAttentionHint: "A IA está pausada e esta conversa requer atendimento humano",
+        humanAttentionHint:
+          "A IA está pausada e esta conversa requer atendimento humano",
         attentionFilter: {
           all: "Todo atendimento",
           ai: "IA ativa",
@@ -1397,8 +1491,7 @@ export const dictionaries = {
           "Encerrar o atendimento humano e reativar respostas automáticas",
         aiPausedToast: "IA pausada para esta conversa.",
         aiResumedToast: "IA reativada para esta conversa.",
-        aiResolvedToast:
-          "Atendimento resolvido. A IA voltou a ficar ativa.",
+        aiResolvedToast: "Atendimento resolvido. A IA voltou a ficar ativa.",
         humanInterventionActive: "Atendimento humano ativo",
         humanInterventionHint:
           "A IA não responderá até que o atendimento seja resolvido.",
@@ -1497,7 +1590,8 @@ export const dictionaries = {
       },
       calendar: {
         title: "Agenda semanal",
-        subtitle: "Veja os horarios agendados e abra qualquer consulta para editar.",
+        subtitle:
+          "Veja os horarios agendados e abra qualquer consulta para editar.",
         previous: "Anterior",
         next: "Seguinte",
         today: "Hoje",
@@ -1812,8 +1906,7 @@ export const dictionaries = {
         tagsSelected: "Etiquetas ({count} selecionadas)",
         custom: "Personalizado",
         reviewTitle: "Revisar e enviar",
-        reviewDescription:
-          "De um nome ao disparo, revise os detalhes e envie.",
+        reviewDescription: "De um nome ao disparo, revise os detalhes e envie.",
         broadcastName: "Nome do disparo",
         broadcastNamePlaceholder: "Ex. Promocao de verao",
         summary: "Resumo",
@@ -2034,7 +2127,7 @@ export const dictionaries = {
       failedDelete: "Falha ao excluir fluxo.",
       deleted: "Fluxo excluído.",
       confirmDelete:
-        "Excluir \"{name}\"? Qualquer execução ativa será encerrada imediatamente.",
+        'Excluir "{name}"? Qualquer execução ativa será encerrada imediatamente.',
       node: "{count} nó",
       nodes: "{count} nós",
       run: "{count} execução",
@@ -2047,6 +2140,7 @@ export const dictionaries = {
     },
     nav: {
       dashboard: "Painel",
+      clients: "Clientes",
       inbox: "Caixa de entrada",
       contacts: "Contatos",
       pipelines: "Pipelines",
@@ -2060,21 +2154,107 @@ export const dictionaries = {
       signOut: "Sair",
       beta: "Beta",
     },
+    accountSuspended: {
+      title: "Conta suspensa",
+      description:
+        "O acesso a esta conta do SophIA CRM está temporariamente suspenso.",
+      contact:
+        "Entre em contato com o administrador do serviço para verificar o status da conta.",
+      signOut: "Sair",
+      signingOut: "Saindo...",
+    },
+    clients: {
+      title: "Clientes",
+      description: "Gerencie as contas que operam no SophIA CRM.",
+      refresh: "Atualizar",
+      retry: "Tentar novamente",
+      loading: "Carregando contas...",
+      loadError: "Não foi possível carregar as contas.",
+      empty: "Ainda não há contas de clientes.",
+      noAdmin: "Sem administrador",
+      members: "{count} usuários",
+      activeMembers: "{count} ativos",
+      edit: "Editar",
+      summary: {
+        total: "Total de contas",
+        active: "Ativas",
+        setup: "Em configuração",
+        suspended: "Suspensas",
+      },
+      table: {
+        account: "Conta",
+        admin: "Administrador",
+        channel: "Canal",
+        team: "Equipe",
+        status: "Status",
+        created: "Criada",
+        actions: "Ações",
+      },
+      statuses: {
+        active: "Ativa",
+        setup: "Em configuração",
+        suspended: "Suspensa",
+      },
+      channels: {
+        whatsapp: "WhatsApp",
+        telegram: "Telegram",
+      },
+      locales: {
+        spanish: "Espanhol (América Latina)",
+        portuguese: "Português (Brasil)",
+      },
+      editor: {
+        title: "Editar conta",
+        description:
+          "Atualize a configuração comercial e operacional do cliente.",
+        name: "Nome da conta",
+        industry: "Setor ou especialidade",
+        industryPlaceholder: "Ex. Clínica médica",
+        status: "Status",
+        channel: "Canal de mensagens",
+        locale: "Idioma",
+        timezone: "Fuso horário",
+        admin: "Administrador principal",
+        resendInvitation: "Reenviar convite",
+        resendingInvitation: "Reenviando...",
+        invitationResent: "Convite reenviado",
+        invitationLinkCopied:
+          "O Supabase não enviou o e-mail; o link do convite foi copiado",
+        invitationResendError: "Não foi possível reenviar o convite.",
+        save: "Salvar alterações",
+        saved: "Conta atualizada",
+        saveError: "Não foi possível atualizar a conta.",
+      },
+      creator: {
+        action: "Novo cliente",
+        title: "Criar conta do cliente",
+        description:
+          "Cadastre a empresa, defina o canal e convide o administrador principal.",
+        adminSection: "Administrador principal",
+        adminDescription:
+          "Ele receberá um convite por e-mail para definir o acesso.",
+        adminName: "Nome do administrador",
+        adminEmail: "E-mail do administrador",
+        create: "Criar e convidar",
+        creating: "Criando conta...",
+        created: "Conta criada e convite enviado",
+        createError: "Não foi possível criar a conta.",
+      },
+    },
     settings: {
       title: "Configurações",
-      description:
-        "Gerencie seu perfil, canal de mensagens, agentes e equipe.",
+      description: "Gerencie seu perfil, canal de mensagens, agentes e equipe.",
       tabs: {
         profile: "Perfil",
         channel: "Canal",
         whatsapp: "Config. WhatsApp",
         telegram: "Config. Telegram",
         templates: "Modelos",
-          tags: "Etiquetas",
-          appointments: "Consultas",
-          ai: "Agente IA",
-          team: "Usuários",
-          appearance: "Aparência",
+        tags: "Etiquetas",
+        appointments: "Consultas",
+        ai: "Agente IA",
+        team: "Usuários",
+        appearance: "Aparência",
       },
       channel: {
         title: "Canal do cliente",
@@ -2155,7 +2335,7 @@ export const dictionaries = {
         creating: "Criando...",
         deleteTitle: "Excluir etiqueta",
         deleteDescription:
-          "Tem certeza de que deseja excluir a etiqueta \"{name}\"? Isso a removera de todos os contatos. Esta acao nao pode ser desfeita.",
+          'Tem certeza de que deseja excluir a etiqueta "{name}"? Isso a removera de todos os contatos. Esta acao nao pode ser desfeita.',
         deleteTag: "Excluir etiqueta",
         deleting: "Excluindo...",
         failedLoad: "Nao foi possivel carregar as etiquetas",
@@ -2209,7 +2389,8 @@ export const dictionaries = {
         remindersDescription:
           "O cron cria avisos unicos para consultas confirmadas com data e horario.",
         reminder24h: "Aviso 24 horas antes",
-        reminder24hHint: "Envia o primeiro lembrete ao entrar na janela de 24 horas.",
+        reminder24hHint:
+          "Envia o primeiro lembrete ao entrar na janela de 24 horas.",
         reminder2h: "Aviso 2 horas antes",
         reminder2hHint: "Envia um lembrete proximo antes da consulta.",
         reminderChannel: "Avisar pelo canal",

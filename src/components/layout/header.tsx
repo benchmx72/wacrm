@@ -29,6 +29,7 @@ const pageTitleKeys = {
   "/automations": "nav.automations",
   "/flows": "nav.flows",
   "/ai-playground": "nav.aiPlayground",
+  "/clients": "nav.clients",
   "/settings": "nav.settings",
 } as const;
 

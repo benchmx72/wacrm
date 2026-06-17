@@ -28,6 +28,7 @@ export type AppPermission =
   | "manage_tags"
   | "manage_appearance"
   | "manage_users"
+  | "manage_accounts"
   | "use_demo_tools";
 
 export const ROLE_LABELS: Record<AppRole, string> = {
@@ -59,6 +60,7 @@ const ROLE_PERMISSIONS: Record<AppRole, AppPermission[]> = {
     "manage_tags",
     "manage_appearance",
     "manage_users",
+    "manage_accounts",
     "use_demo_tools",
   ],
   client_admin: [
@@ -105,6 +107,7 @@ export const PATH_PERMISSIONS: Array<{
   path: string;
   permission: AppPermission;
 }> = [
+  { path: "/clients", permission: "manage_accounts" },
   { path: "/ai-playground", permission: "view_ai_playground" },
   { path: "/automations", permission: "view_automations" },
   { path: "/flows", permission: "view_flows" },

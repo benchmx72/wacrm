@@ -25,6 +25,7 @@ import {
   LogOut,
   User,
   X,
+  Building2,
 } from "lucide-react";
 import {
   Avatar,
@@ -64,6 +65,7 @@ const navItems: NavItem[] = [
 ];
 
 const bottomNavItems: NavItem[] = [
+  { href: "/clients", labelKey: "nav.clients", icon: Building2, permission: "manage_accounts" },
   { href: "/settings", labelKey: "nav.settings", icon: Settings, permission: "view_settings" },
 ];
 
