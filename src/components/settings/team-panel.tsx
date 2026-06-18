@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { MailPlus, Power, RefreshCw, Shield, Users } from "lucide-react";
+import { MailPlus, Power, RefreshCw, Shield, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
 import type { Profile } from "@/types";
 import { normalizeRole, type AppRole } from "@/lib/auth/roles";
@@ -50,6 +50,7 @@ export function TeamPanel() {
   const [sending, setSending] = useState(false);
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
   const [resendingUserId, setResendingUserId] = useState<string | null>(null);
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
   const [role, setRole] = useState<AppRole>("staff");
@@ -171,6 +172,28 @@ export function TeamPanel() {
     setResendingUserId(null);
   }
 
+  async function deleteUser(targetUserId: string) {
+    if (deletingUserId) return;
+    if (!window.confirm(t("settings.team.confirmDelete"))) return;
+
+    setDeletingUserId(targetUserId);
+    const res = await fetch("/api/team/users", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: targetUserId }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) {
+      setUsers((current) =>
+        current.filter((teamUser) => teamUser.user_id !== targetUserId),
+      );
+      toast.success(t("settings.team.userDeleted"));
+    } else {
+      toast.error(data.error ?? t("settings.team.failedDelete"));
+    }
+    setDeletingUserId(null);
+  }
+
   return (
     <div className="grid gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
       <Card className="border-slate-800 bg-slate-900/40">
@@ -287,10 +310,19 @@ export function TeamPanel() {
                   const isSelf = user.user_id === currentUser?.id;
                   const rowUpdating = updatingUserId === user.user_id;
                   const rowResending = resendingUserId === user.user_id;
+                  const rowDeleting = deletingUserId === user.user_id;
                   const userRole = normalizeRole(user.role);
                   const userStatus = user.status ?? "active";
                   const locked =
-                    isSelf || userRole === "super_admin" || rowUpdating || rowResending;
+                    isSelf ||
+                    userRole === "super_admin" ||
+                    rowUpdating ||
+                    rowResending ||
+                    rowDeleting;
+                  const canDelete =
+                    !isSelf &&
+                    userRole !== "super_admin" &&
+                    (userStatus === "invited" || userStatus === "disabled");
 
                   return (
                     <TableRow
@@ -376,6 +408,21 @@ export function TeamPanel() {
                                 ? t("settings.team.reactivate")
                                 : t("common.deactivate")}
                           </Button>
+                          {canDelete ? (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={locked}
+                              onClick={() => deleteUser(user.user_id)}
+                              className="border-red-500/50 text-red-200 hover:border-red-400 hover:bg-red-500/10 hover:text-red-100"
+                            >
+                              <Trash2 className="size-4" />
+                              {rowDeleting
+                                ? t("settings.team.deleting")
+                                : t("settings.team.delete")}
+                            </Button>
+                          ) : null}
                         </div>
                       </TableCell>
                       <TableCell className="text-xs text-slate-400">

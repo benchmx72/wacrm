@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { supabaseAuthAdmin } from '@/lib/auth/admin-client';
 import { hasPermission } from '@/lib/auth/roles';
+import { sendInvitationEmail } from '@/lib/email/invitations';
 
 const PROFILE_SELECT =
   'user_id, account_owner_id, full_name, email, role, status, messaging_channel, created_at';
@@ -133,17 +134,8 @@ export async function POST(request: Request) {
         full_name: owner.full_name || owner.email,
         role: 'client_admin',
       },
-      redirectTo: `${getOrigin(request)}/dashboard`,
+      redirectTo: `${getOrigin(request)}/auth/callback?next=/reset-password`,
     };
-
-    const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(
-      owner.email,
-      inviteOptions
-    );
-
-    if (!inviteError) {
-      return NextResponse.json({ message: 'Invitation resent' });
-    }
 
     const { data: linkData, error: linkError } =
       await admin.auth.admin.generateLink({
@@ -157,17 +149,38 @@ export async function POST(request: Request) {
         {
           error:
             linkError?.message ||
-            inviteError.message ||
             'Could not resend invitation',
         },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({
-      invitation_link: linkData.properties.action_link,
-      message: 'Invitation link generated',
-    });
+    try {
+      const emailResult = await sendInvitationEmail({
+        to: owner.email,
+        fullName: owner.full_name || owner.email,
+        roleLabel: 'Admin cliente',
+        actionLink: linkData.properties.action_link,
+      });
+
+      return NextResponse.json({
+        invitation_link: emailResult.sent ? undefined : linkData.properties.action_link,
+        message: emailResult.sent
+          ? 'Invitation resent'
+          : 'Invitation link generated',
+      });
+    } catch (error) {
+      return NextResponse.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : 'Could not send invitation email',
+          invitation_link: linkData.properties.action_link,
+        },
+        { status: 500 }
+      );
+    }
   }
 
   const name = cleanText(body?.name);
@@ -220,15 +233,21 @@ export async function POST(request: Request) {
   }
 
   const { admin, requesterUserId } = authorization;
+  const inviteOptions = {
+    data: { full_name: adminName, role: 'client_admin' },
+    redirectTo: `${getOrigin(request)}/auth/callback?next=/reset-password`,
+  };
+
   const { data: inviteData, error: inviteError } =
-    await admin.auth.admin.inviteUserByEmail(adminEmail, {
-      data: { full_name: adminName, role: 'client_admin' },
-      redirectTo: `${getOrigin(request)}/dashboard`,
+    await admin.auth.admin.generateLink({
+      type: 'invite',
+      email: adminEmail,
+      options: inviteOptions,
     });
 
-  if (inviteError || !inviteData.user) {
+  if (inviteError || !inviteData?.user || !inviteData.properties?.action_link) {
     return NextResponse.json(
-      { error: inviteError?.message ?? 'Could not invite administrator' },
+      { error: inviteError?.message ?? 'Could not generate administrator invitation' },
       { status: 500 }
     );
   }
@@ -289,23 +308,58 @@ export async function POST(request: Request) {
     );
   }
 
-  return NextResponse.json(
-    {
-      account: {
-        ...account,
-        owner: {
-          user_id: ownerProfile.user_id,
-          full_name: ownerProfile.full_name,
-          email: ownerProfile.email,
-          status: ownerProfile.status,
-          messaging_channel: ownerProfile.messaging_channel,
+  try {
+    const emailResult = await sendInvitationEmail({
+      to: adminEmail,
+      fullName: adminName,
+      roleLabel: 'Admin cliente',
+      actionLink: inviteData.properties.action_link,
+    });
+
+    return NextResponse.json(
+      {
+        account: {
+          ...account,
+          owner: {
+            user_id: ownerProfile.user_id,
+            full_name: ownerProfile.full_name,
+            email: ownerProfile.email,
+            status: ownerProfile.status,
+            messaging_channel: ownerProfile.messaging_channel,
+          },
+          member_count: 1,
+          active_member_count: 0,
         },
-        member_count: 1,
-        active_member_count: 0,
+        invitation_link: emailResult.sent
+          ? undefined
+          : inviteData.properties.action_link,
       },
-    },
-    { status: 201 }
-  );
+      { status: 201 }
+    );
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Account created, but invitation email could not be sent',
+        account: {
+          ...account,
+          owner: {
+            user_id: ownerProfile.user_id,
+            full_name: ownerProfile.full_name,
+            email: ownerProfile.email,
+            status: ownerProfile.status,
+            messaging_channel: ownerProfile.messaging_channel,
+          },
+          member_count: 1,
+          active_member_count: 0,
+        },
+        invitation_link: inviteData.properties.action_link,
+      },
+      { status: 500 }
+    );
+  }
 }
 
 export async function GET() {
