@@ -31,12 +31,26 @@ function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
-function getOrigin(request: Request) {
-  return (
-    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "") ??
-    request.headers.get("origin") ??
-    "http://localhost:3000"
+function isLocalOrigin(value: string) {
+  return /(^https?:\/\/)?(localhost|127\.0\.0\.1|\[::1\])(?::|\/|$)/i.test(
+    value,
   );
+}
+
+function getOrigin(request: Request) {
+  const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/+$/, "");
+  if (configured && !isLocalOrigin(configured)) return configured;
+
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  if (forwardedHost && !isLocalOrigin(forwardedHost)) {
+    const forwardedProto = request.headers.get("x-forwarded-proto") ?? "https";
+    return `${forwardedProto}://${forwardedHost}`.replace(/\/+$/, "");
+  }
+
+  const origin = request.headers.get("origin")?.replace(/\/+$/, "");
+  if (origin && !isLocalOrigin(origin)) return origin;
+
+  return configured ?? origin ?? "http://localhost:3000";
 }
 
 function roleLabel(role: AppRole) {
@@ -162,7 +176,7 @@ export async function POST(request: Request) {
         full_name: target.full_name || target.email,
         role: targetRole,
       },
-      redirectTo: `${origin}/auth/callback?next=/reset-password`,
+      redirectTo: `${origin}/reset-password`,
     };
 
     const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
@@ -227,7 +241,7 @@ export async function POST(request: Request) {
 
   const inviteOptions = {
     data: { full_name: fullName, role },
-    redirectTo: `${origin}/auth/callback?next=/reset-password`,
+    redirectTo: `${origin}/reset-password`,
   };
 
   const { data: inviteData, error: inviteError } =

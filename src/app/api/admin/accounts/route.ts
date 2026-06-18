@@ -59,11 +59,26 @@ function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
-function getOrigin(request: Request) {
-  return (
-    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, '') ||
-    new URL(request.url).origin
+function isLocalOrigin(value: string) {
+  return /(^https?:\/\/)?(localhost|127\.0\.0\.1|\[::1\])(?::|\/|$)/i.test(
+    value
   );
+}
+
+function getOrigin(request: Request) {
+  const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/+$/, '');
+  if (configured && !isLocalOrigin(configured)) return configured;
+
+  const forwardedHost = request.headers.get('x-forwarded-host');
+  if (forwardedHost && !isLocalOrigin(forwardedHost)) {
+    const forwardedProto = request.headers.get('x-forwarded-proto') ?? 'https';
+    return `${forwardedProto}://${forwardedHost}`.replace(/\/+$/, '');
+  }
+
+  const origin = request.headers.get('origin')?.replace(/\/+$/, '');
+  if (origin && !isLocalOrigin(origin)) return origin;
+
+  return configured || origin || new URL(request.url).origin;
 }
 
 function isValidTimezone(timezone: string) {
@@ -134,7 +149,7 @@ export async function POST(request: Request) {
         full_name: owner.full_name || owner.email,
         role: 'client_admin',
       },
-      redirectTo: `${getOrigin(request)}/auth/callback?next=/reset-password`,
+      redirectTo: `${getOrigin(request)}/reset-password`,
     };
 
     const { data: linkData, error: linkError } =
@@ -235,7 +250,7 @@ export async function POST(request: Request) {
   const { admin, requesterUserId } = authorization;
   const inviteOptions = {
     data: { full_name: adminName, role: 'client_admin' },
-    redirectTo: `${getOrigin(request)}/auth/callback?next=/reset-password`,
+    redirectTo: `${getOrigin(request)}/reset-password`,
   };
 
   const { data: inviteData, error: inviteError } =
