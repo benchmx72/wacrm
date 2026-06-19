@@ -98,10 +98,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (data) {
         let messagingChannel: MessagingChannel = "whatsapp";
+        const accountOwnerId = data.account_owner_id ?? userId;
         const { data: channelData, error: channelError } = await supabase
           .from("profiles")
           .select("messaging_channel")
-          .eq("user_id", userId)
+          .eq("user_id", accountOwnerId)
           .maybeSingle();
 
         if (!channelError && channelData?.messaging_channel) {
