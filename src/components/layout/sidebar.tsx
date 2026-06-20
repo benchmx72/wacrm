@@ -10,7 +10,7 @@ import { useTotalUnread } from "@/hooks/use-total-unread";
 import { SophiaLogo } from "@/components/brand/sophia-logo";
 import type { TranslationKey } from "@/lib/i18n";
 import type { AppPermission } from "@/lib/auth/roles";
-import { hasPermission } from "@/lib/auth/roles";
+import { getSettingsHref, hasPermission } from "@/lib/auth/roles";
 import {
   LayoutDashboard,
   MessageSquare,
@@ -80,6 +80,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
   const { profile, signOut } = useAuth();
   const { t } = useLanguage();
   const totalUnread = useTotalUnread();
+  const settingsHref = getSettingsHref(profile?.role, profile?.messaging_channel);
 
   // Close the drawer when route changes — users opened it to navigate,
   // so once they pick a destination the drawer should get out of the way.
@@ -269,11 +270,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
               <DropdownMenuItem
                 render={
                   <Link
-                    href={
-                      hasPermission(profile?.role, "manage_whatsapp")
-                        ? "/settings?tab=whatsapp"
-                        : "/settings?tab=profile"
-                    }
+                    href={settingsHref}
                     onClick={onClose}
                     className="text-slate-200 focus:bg-slate-800 focus:text-white"
                   />

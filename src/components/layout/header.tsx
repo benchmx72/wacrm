@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { useLanguage } from "@/hooks/use-language";
-import { hasPermission } from "@/lib/auth/roles";
+import { getSettingsHref } from "@/lib/auth/roles";
 import { LogOut, Menu, Settings as SettingsIcon, User } from "lucide-react";
 import {
   Avatar,
@@ -54,6 +54,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
   const { profile, signOut } = useAuth();
   const { t } = useLanguage();
   const title = t(getPageTitleKey(pathname));
+  const settingsHref = getSettingsHref(profile?.role, profile?.messaging_channel);
 
   const initial =
     profile?.full_name?.charAt(0)?.toUpperCase() ??
@@ -125,11 +126,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
           <DropdownMenuItem
             render={
               <Link
-                href={
-                  hasPermission(profile?.role, "manage_whatsapp")
-                    ? "/settings?tab=whatsapp"
-                    : "/settings?tab=profile"
-                }
+                href={settingsHref}
                 className="text-slate-200 focus:bg-slate-800 focus:text-white"
               />
             }

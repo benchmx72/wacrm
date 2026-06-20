@@ -142,3 +142,15 @@ export function canAccessPath(role: string | null | undefined, pathname: string)
   );
   return rule ? hasPermission(role, rule.permission) : true;
 }
+
+export function getSettingsHref(
+  role: string | null | undefined,
+  messagingChannel?: string | null,
+) {
+  if (hasPermission(role, "use_demo_tools")) return "/settings?tab=channel";
+  if (!hasPermission(role, "manage_whatsapp")) return "/settings?tab=profile";
+
+  return messagingChannel === "telegram"
+    ? "/settings?tab=telegram"
+    : "/settings?tab=whatsapp";
+}
