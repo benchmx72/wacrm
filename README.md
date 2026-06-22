@@ -68,6 +68,9 @@ Open <http://localhost:3000>. You'll be redirected to `/login` (or
 
 ## Documentation
 
+SophIA CRM deployment and operations notes for this fork live in
+[`README_DEPLOY.md`](./README_DEPLOY.md).
+
 Full self-host documentation — Supabase migrations, WhatsApp Business
 API config, and production deploy — lives at
 **[wacrm.tech/docs](https://wacrm.tech/docs)**
