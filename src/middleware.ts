@@ -30,13 +30,18 @@ const protectedApiRules: Array<{
   { path: '/api/demo', permission: 'use_demo_tools' },
   { path: '/api/ai/settings', permission: 'manage_ai' },
   { path: '/api/ai/agent', permission: 'view_ai_playground' },
-  { path: '/api/ai/inbox', permission: 'view_inbox' },
+  { path: '/api/ai/inbox', permission: 'send_messages' },
+  { path: '/api/conversations', permission: 'send_messages' },
   { path: '/api/whatsapp/config', permission: 'manage_whatsapp' },
   { path: '/api/whatsapp/templates', permission: 'manage_templates' },
   { path: '/api/whatsapp/broadcast', permission: 'view_broadcasts' },
   { path: '/api/whatsapp/send', permission: 'send_messages' },
   { path: '/api/whatsapp/react', permission: 'send_messages' },
   { path: '/api/whatsapp/media', permission: 'view_inbox' },
+  { path: '/api/telegram/config', permission: 'manage_whatsapp' },
+  { path: '/api/telegram/broadcast', permission: 'view_broadcasts' },
+  { path: '/api/telegram/send', permission: 'send_messages' },
+  { path: '/api/telegram/media', permission: 'view_inbox' },
   { path: '/api/appointments', permission: 'manage_appointments' },
   { path: '/api/automations', permission: 'view_automations' },
   { path: '/api/flows', permission: 'view_flows' },
@@ -49,6 +54,7 @@ function pathMatches(pathname: string, path: string) {
 function apiPermissionFor(pathname: string) {
   if (
     pathname === '/api/whatsapp/webhook' ||
+    pathname === '/api/telegram/webhook' ||
     pathname === '/api/automations/cron' ||
     pathname === '/api/flows/cron' ||
     pathMatches(pathname, '/api/appointments/notifications')
@@ -171,8 +177,14 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
-    if (apiRule && !hasPermission(profile?.role, apiRule.permission)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    if (apiRule) {
+      if (!profile?.role) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+
+      if (!hasPermission(profile.role, apiRule.permission)) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
     }
   }
 

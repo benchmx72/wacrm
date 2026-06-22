@@ -14,5 +14,9 @@ export async function userHasPermission(
     .eq("user_id", userId)
     .maybeSingle();
 
-  return hasPermission(data?.role, permission);
+  if (!data?.role) {
+    return false;
+  }
+
+  return hasPermission(data.role, permission);
 }
